@@ -1,8 +1,8 @@
-CC=nvcc
-CFLAGS=#-Wall -O3 -fopenmp
-LDFLAGS=#-lm -fopenmp
-SRC=$(wildcard *.c*)
-#OBJS=$(SRC:.c*=.o)
+CC=cc
+CFLAGS=-Wall -O3 -fopenmp
+LDFLAGS=-lm -fopenmp
+SRC=$(wildcard *.c)
+OBJS=$(SRC:.c=.o)
 
 all: $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -o grandval
@@ -14,4 +14,4 @@ all: $(OBJS)
 	$(CC) $(CFLAGS) -c $<
 
 clean:
-	rm $(OBJS)
+	#rm $(OBJS)

@@ -1,10 +1,12 @@
+#include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include "grandval.h"
 #include "nbody.h"
 
-void accel(struct potential *phi0, struct particle *p, acc_t *out)
+static void accel(struct potential *phi0, struct particle *p, acc_t *out)
 {
     int i;
     struct nbody_potential *phi = phi0->phi;
@@ -44,13 +46,12 @@ void accel(struct potential *phi0, struct particle *p, acc_t *out)
         out[1] += Fhat(dy);
         out[2] += Fhat(dz);
 
-        int j;
-        for (j=0; j < 3; j++) fprintf(stderr, "%i %e %e %e\n", j, Fhat(dx), Fhat(dy), Fhat(dz));
+        //int j; for (j=0; j < 3; j++) fprintf(stderr, "%i %e %e %e\n", j, Fhat(dx), Fhat(dy), Fhat(dz));
     }
-    fprintf(stderr, "\n");
+    //fprintf(stderr, "\n");
 }
 
-void nbody_accel(struct nbody_potential *phi, struct massive_particle *p, acc_t *out)
+static void nbody_accel(struct nbody_potential *phi, struct massive_particle *p, acc_t *out)
 {
     int i;
     struct massive_particle *mp = phi->p;
@@ -65,6 +66,8 @@ void nbody_accel(struct nbody_potential *phi, struct massive_particle *p, acc_t 
 
     for (i=0; i < phi->N; i++)
     {
+        if (mp+i == p) continue;
+
         const double dx = mp[i].x[0] - x;
         const double dy = mp[i].x[1] - y;
         const double dz = mp[i].x[2] - z;
@@ -89,21 +92,32 @@ void nbody_accel(struct nbody_potential *phi, struct massive_particle *p, acc_t 
         out[1] += Fhat(dy);
         out[2] += Fhat(dz);
 
-        int j;
-        for (j=0; j < 3; j++) fprintf(stderr, "%i %e %e %e\n", j, Fhat(dx), Fhat(dy), Fhat(dz));
+        //int j; for (j=0; j < 3; j++) fprintf(stderr, "%i %e %e %e\n", j, Fhat(dx), Fhat(dy), Fhat(dz));
     }
-    fprintf(stderr, "\n");
+    //fprintf(stderr, "\n");
 }
 
-void nbody_step(struct potential *phi, struct particle *p, tyme_t t, tyme_t dt)
+static void nbody_drift(struct nbody_potential *phi, struct massive_particle *p, tyme_t dt)
+{
+    int i;
+    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
+}
+
+static void nbody_kick(struct nbody_potential *phi, struct massive_particle *p, tyme_t dt)
 {
     int i;
     acc_t a[3];
 
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
-    phi->accel(phi, p, a);
-    for (i=0; i < 3; i++) p->v[i] +=    a[i] * dt;
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
+    nbody_accel(phi, p, a);
+    for (i=0; i < 3; i++) p->v[i] += a[i] * dt;
+}
+
+static void nbody_step_all(struct nbody_potential *phi, tyme_t dt)
+{
+    int i;
+    for (i=0; i < phi->N; i++) nbody_drift(phi, &phi->p[i], dt);
+    for (i=0; i < phi->N; i++) nbody_kick (phi, &phi->p[i], dt);
+    for (i=0; i < phi->N; i++) nbody_drift(phi, &phi->p[i], dt);
 }
 
 void nbody_create_potential(struct potential *phi0, int N)
@@ -124,6 +138,9 @@ void nbody_create_potential(struct potential *phi0, int N)
 
     phi->p[0].m = 1e5;
 
+    phi->dt = 0.01;
+    phi->t = 0;
+
     phi0->accel = accel;
     phi0->advance = nbody_advance_phi;
     phi0->phi = phi;
@@ -136,14 +153,14 @@ void nbody_advance_phi(struct potential *phi0, tyme_t t)
 
     if (t != phi->t)
     {
-        for (; phi->t < t-phi->dt; phi->t += phi->dt)
-        {
-            for (i=0; i < phi->N; i++)
-                nbody_step(&phi, &phi->p[i], phi->dt);
-        }
+        fprintf(stderr, "Advancing potential to time %f\n", t);
 
-        for (i=0; i < phi->N; i++)
-            step(&phi, &phi->p[i], t-phi->t);
+        for (; phi->t < t-phi->dt; phi->t += phi->dt)
+            nbody_step_all(phi, phi->dt);
+
+        if (t > phi->t)
+            nbody_step_all(phi, t - phi->dt);
+
     }
 }
 
