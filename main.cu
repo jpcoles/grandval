@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 {
     int NP = 5000;
 
-    struct particle *P = malloc(NP * sizeof(*P));
+    struct particle *P = (struct particle *)malloc(NP * sizeof(*P));
     assert(P != NULL);
 
     tyme_t Tmax = 100;

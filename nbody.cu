@@ -9,7 +9,7 @@
 static void accel(struct potential *phi0, struct particle *p, acc_t *out)
 {
     int i;
-    struct nbody_potential *phi = phi0->phi;
+    struct nbody_potential *phi = (struct nbody_potential *)phi0->phi;
     struct massive_particle *mp = phi->p;
     const double e2 = phi->eps2;
 
@@ -122,11 +122,11 @@ static void nbody_step_all(struct nbody_potential *phi, tyme_t dt)
 
 void nbody_create_potential(struct potential *phi0, int N)
 {
-    struct nbody_potential *phi = malloc(sizeof(*phi)); 
+    struct nbody_potential *phi = (struct nbody_potential *)malloc(sizeof(*phi)); 
 
     phi->N = N;
     phi->eps2 = 1;
-    phi->p = malloc(N * sizeof(*phi->p));
+    phi->p = (struct massive_particle *)malloc(N * sizeof(*phi->p));
 
     phi->p[0].x[0] =
     phi->p[0].x[1] =
@@ -148,7 +148,7 @@ void nbody_create_potential(struct potential *phi0, int N)
 
 void nbody_advance_phi(struct potential *phi0, tyme_t t)
 {
-    struct nbody_potential *phi = phi0->phi;
+    struct nbody_potential *phi = (struct nbody_potential *)phi0->phi;
     assert(t >= phi->t);
 
     if (t != phi->t)

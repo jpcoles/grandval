@@ -1,16 +1,15 @@
 CC=nvcc
-CFLAGS=-Wall -O3 -fopenmp
-LDFLAGS=-lm -fopenmp
+CFLAGS=-Xcompiler "-Wall -O3 -fopenmp"
+LDFLAGS=-Xlinker "-lm -fopenmp"
 SRC=$(wildcard *.cu)
-OBJS=$(SRC:.cu=.o)
+OBJS=$(patsubst %.cu,%.o, $(SRC))
 
 all: $(OBJS)
+	echo $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) -o grandval
 
-%.o: %.c %.h
-	$(CC) $(CFLAGS) -c $<
-
-%.o: %.cu %.h
+%.o: %.cu
+	echo $(OBJS) $(SRC)
 	$(CC) $(CFLAGS) -c $<
 
 clean:
