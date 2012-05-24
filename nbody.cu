@@ -6,10 +6,10 @@
 #include "grandval.h"
 #include "nbody.h"
 
-static void accel(struct potential *phi0, struct particle *p, acc_t *out)
+__device__ void accel(struct nbody_potential *phi, struct particle *p, acc_t *out)
 {
     int i;
-    struct nbody_potential *phi = (struct nbody_potential *)phi0->phi;
+    //struct nbody_potential *phi = (struct nbody_potential *)phi0->phi;
     struct massive_particle *mp = phi->p;
     const double e2 = phi->eps2;
 
@@ -123,9 +123,21 @@ static void nbody_step_all(struct nbody_potential *phi, tyme_t dt)
 void nbody_create_potential(struct potential *phi0, int N)
 {
     struct nbody_potential *phi = (struct nbody_potential *)malloc(sizeof(*phi)); 
+    struct nbody_potential *phi_dev;
+    struct massive_particle *pdev;
+
+    cudaMalloc((void **)&phi_dev, sizeof(*phi_dev));
+    cudaMalloc((void **)&pdev, N * sizeof(*pdev));
+
 
     phi->N = N;
     phi->eps2 = 1;
+    phi->dt = 0.01;
+    phi->t = 0;
+
+    phi->p = pdev;
+    cudaMemcpy(phi_dev, phi, sizeof(*phi_dev), cudaMemcpyHostToDevice);
+
     phi->p = (struct massive_particle *)malloc(N * sizeof(*phi->p));
 
     phi->p[0].x[0] =
@@ -138,12 +150,13 @@ void nbody_create_potential(struct potential *phi0, int N)
 
     phi->p[0].m = 1e5;
 
-    phi->dt = 0.01;
-    phi->t = 0;
+    cudaMemcpy(pdev, phi->p, phi->N * sizeof(*pdev), cudaMemcpyHostToDevice);
 
-    phi0->accel = accel;
+
+    //phi0->accel = accel;
     phi0->advance = nbody_advance_phi;
     phi0->phi = phi;
+    phi0->phi_dev = phi_dev;
 }
 
 void nbody_advance_phi(struct potential *phi0, tyme_t t)
@@ -161,6 +174,7 @@ void nbody_advance_phi(struct potential *phi0, tyme_t t)
         if (t > phi->t)
             nbody_step_all(phi, t - phi->dt);
 
+        //cudaMemcpy(phi->pdev, phi->p, phi->N * sizeof(*phi->pdev), cudaMemcpyHostToDevice);
     }
 }
 

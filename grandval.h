@@ -71,6 +71,7 @@ struct potential
     accel_fn accel;
     advance_fn advance;
     void *phi;
+    void *phi_dev;
 };
 
 struct nbody_potential

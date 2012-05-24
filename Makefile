@@ -1,7 +1,7 @@
 CC=nvcc
-CFLAGS=-Xcompiler "-Wall -O3 -fopenmp"
+CFLAGS=-Xcompiler "-Wall -O3 -fopenmp" --generate-code arch=compute_20,code=sm_21 -v
 LDFLAGS=-Xlinker "-lm -fopenmp"
-SRC=$(wildcard *.cu)
+SRC=main.cu #$(wildcard *.cu)
 OBJS=$(patsubst %.cu,%.o, $(SRC))
 
 all: $(OBJS)
