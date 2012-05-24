@@ -45,13 +45,14 @@ void write_positions(struct particle *P, int NP, int first_output)
 void step_all(struct potential *phi, struct particle *P, int NP, tyme_t dt)
 {
     int i;
+    #pragma omp parallel for
     for (i=0; i < NP; i++)
         step(phi, P + i, dt);
 }
 
 int main(int argc, char **argv)
 {
-    int NP = 5;
+    int NP = 5000;
 
     struct particle *P = malloc(NP * sizeof(*P));
     assert(P != NULL);
@@ -70,7 +71,7 @@ int main(int argc, char **argv)
 
     for (t=dt; t < Tmax+dt; t += dt, curr_step++)
     {
-        write_positions(P, NP, curr_step == 0);
+        //write_positions(P, NP, curr_step == 0);
 
         if (t > Tmax) t = Tmax;
 
@@ -78,7 +79,7 @@ int main(int argc, char **argv)
         step_all(&phi, P, NP, dt);
     }
 
-    write_positions(P, NP, curr_step == 0);
+    //write_positions(P, NP, curr_step == 0);
 
     return 0;
 }
