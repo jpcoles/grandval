@@ -6,36 +6,15 @@
 #include "grandval.h"
 #include "nbody.h"
 #include "ic.h"
+#include "io.h"
 
 #define WITH_CUDA 1
 
-#include "nbody.cu"
-#include "ic.cu"
+size_t cuda_threads_per_block;
+size_t cuda_blocks_x, cuda_blocks_y;
 
-int cuda_threads_per_block;
-int cuda_blocks_x, cuda_blocks_y;
 
-__global__ void cuda_step(struct nbody_potential *phi, struct particle *P, int NP, tyme_t dt)
-{
-    int i;
-    acc_t a[3];
-
-    int pi = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (pi >= NP) return;
-
-    struct particle *p = P + pi;
-
-    //printf("blockIdx %i  blockDim %i  threadIdx %i\n", blockIdx.x, blockDim.x, threadIdx.x);
-    //printf("particle %i x=%f\n", threadIdx.x, p->x[0]);
-
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
-    //phi->accel(phi, p, a);
-    accel(phi, p, a);
-    for (i=0; i < 3; i++) p->v[i] +=    a[i] * dt;
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
-}
-
+#if 0
 void step(struct potential *phi, struct particle *p, tyme_t dt)
 {
     int i;
@@ -46,10 +25,11 @@ void step(struct potential *phi, struct particle *p, tyme_t dt)
     for (i=0; i < 3; i++) p->v[i] +=    a[i] * dt;
     for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
 }
+#endif
 
-void write_positions(struct particle *P, int NP, int first_output)
+void write_positions(struct particle *P, size_t NP, int first_output)
 {
-    int i;
+    size_t i;
     char *mode;
     char fname[256];
 
@@ -73,21 +53,15 @@ void write_positions(struct particle *P, int NP, int first_output)
     }
 }
 
-void cuda_step_all(struct potential *phi, struct particle *P, int NP, tyme_t dt)
+#if 0
+void step_all(struct potential *phi, struct particle *P, size_t NP, tyme_t dt)
 {
-    int nblocks  = (int)ceil(NP / (float)cuda_threads_per_block);
-    int nthreads = NP < cuda_threads_per_block ? NP : cuda_threads_per_block;
-    //fprintf(stderr, "Using %i blocks, %i threads\n", nblocks, nthreads);
-    cuda_step<<<nblocks,nthreads>>>((struct nbody_potential *)phi->phi_dev, P, NP, dt);
-}
-
-void step_all(struct potential *phi, struct particle *P, int NP, tyme_t dt)
-{
-    int i;
+    size_t i;
     #pragma omp parallel for
     for (i=0; i < NP; i++)
         step(phi, P + i, dt);
 }
+#endif
 
 void show_cuda_devices()
 {
@@ -104,12 +78,16 @@ void show_cuda_devices()
         cudaDeviceProp deviceProp;
         cudaGetDeviceProperties(&deviceProp, device);
         printf("Device %d has compute capability %d.%d.\n", device, deviceProp.major, deviceProp.minor);
+        printf("              totalGlobalMem %ld (approx. %ld particles).\n", deviceProp.totalGlobalMem, deviceProp.totalGlobalMem / (sizeof(struct particle)));
+        printf("              maxThreadsPerMultiProcessor %d.\n", deviceProp.maxThreadsPerMultiProcessor);
         printf("              maxThreadsPerBlock %d.\n", deviceProp.maxThreadsPerBlock);
         printf("              maxThreadsDim %d,%d,%d.\n", deviceProp.maxThreadsDim[0], deviceProp.maxThreadsDim[1], deviceProp.maxThreadsDim[2]);
         printf("              maxGridSize %d,%d,%d.\n", deviceProp.maxGridSize[0], deviceProp.maxGridSize[1], deviceProp.maxGridSize[2]);
+        printf("              warpSize %d\n", deviceProp.warpSize);
+        printf("              regsPerBlock %d\n", deviceProp.regsPerBlock);
 
         cuda_threads_per_block = deviceProp.maxThreadsPerBlock;
-        cuda_threads_per_block = 256;
+        cuda_threads_per_block = 640;
         cuda_blocks_x = deviceProp.maxGridSize[0];
         cuda_blocks_y = deviceProp.maxGridSize[1];
     }
@@ -117,44 +95,80 @@ void show_cuda_devices()
 
 int main(int argc, char **argv)
 {
-    int NP = 100000;
+    size_t NP = 1000000;
     int curr_step;
+    int Ncaptures = 100;
+
+    struct nbody *nbody;
+
+    int red[3] = {255,0,0};
+    int grey[3] = {255,255,255};
 
     struct particle *P = (struct particle *)malloc(NP * sizeof(*P));
     assert(P != NULL);
 
-    tyme_t Tmax = 1;
+    struct image image;
+    image.nc = 512;
+    image.nr = 512;
+    image.image  = (unsigned char *)calloc(3 * image.nr * image.nc, sizeof(*image.image));
+    image.hist = (int *)calloc(1 * image.nr * image.nc, sizeof(*image.hist));
+
+    tyme_t Tmax = 60;
     tyme_t t = 0;
     tyme_t dt = .02;
-
-    struct potential phi;
 
     show_cuda_devices();
 
     //ic_random(P, NP, 100);
     ic_circular(P, NP, 100);
-    nbody_create_potential(&phi, 1);
 
-    struct particle *Pdev;
-    cudaMalloc((void **)&Pdev, NP * sizeof(*P));
-    cudaMemcpy(Pdev, P, NP * sizeof(*P), cudaMemcpyHostToDevice);
+    nbody = nbody_init();
+    nbody_set_particles(nbody, P, NP);
+    nbody_create_potential(nbody, 2);
 
+    double t_next_capture = Tmax / Ncaptures;
+    int curr_capture = 0;
+    if (Ncaptures)
+    {
+        capture(100, P, NP, &image, 1, grey);
+        capture_massive(100, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        save_snapshot(curr_capture, &image);
+        curr_capture++;
+    }
 
     for (curr_step = 0, t = dt;
          t < Tmax+dt;
          t += dt, curr_step++)
     {
-        //cudaMemcpy(P, Pdev, NP * sizeof(*P), cudaMemcpyDeviceToHost);
-        //write_positions(P, NP, curr_step == 0);
-
         if (t > Tmax) t = Tmax;
 
-        phi.advance(&phi, t);
-        cuda_step_all(&phi, Pdev, NP, dt);
+        nbody_step_all(nbody, dt);
+        //phi.advance(&phi, t);
+        nbody_advance_potential(nbody, t);
+
+        nbody_get_particles(nbody, &P, &NP);
+
+        if (Ncaptures && t > t_next_capture)
+        {
+            //write_positions(P, NP, curr_step == 0);
+            capture(100, P, NP, &image, 1, grey);
+            capture_massive(100, nbody->phi.P, nbody->phi.N, &image, 0, red);
+            save_snapshot(curr_capture, &image);
+            curr_capture++;
+            t_next_capture += Tmax / Ncaptures;
+        }
     }
 
-    cudaMemcpy(P, Pdev, NP * sizeof(*P), cudaMemcpyDeviceToHost);
-    write_positions(P, NP, curr_step == 0);
+    nbody_get_particles(nbody, &P, &NP);
+    if (Ncaptures)
+    {
+        capture(100, P, NP, &image, 1, grey);
+        capture_massive(100, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        save_snapshot(curr_capture, &image);
+    }
+    //write_positions(P, NP, curr_step == 0);
+
+    nbody_free(nbody);
 
     return 0;
 }

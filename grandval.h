@@ -48,39 +48,25 @@ typedef double mass_t;             /* Msun             */
 typedef double energy_t;           /* */
 typedef double soft_t;
 
-struct particle
+struct image
+{
+    int nr, nc;
+    unsigned char *image;
+    int *hist;
+};
+
+struct __align__(16) particle
 {
     pos_t x[3];
     vel_t v[3];
 };
 
-struct massive_particle
+struct __align__(16) massive_particle
 {
     pos_t x[3];
     vel_t v[3];
     mass_t m;
 };
 
-struct potential;
-
-typedef void (*accel_fn)(struct potential *phi, struct particle *p, acc_t *out);
-typedef void (*advance_fn)(struct potential *phi, tyme_t t);
-
-struct potential
-{
-    accel_fn accel;
-    advance_fn advance;
-    void *phi;
-    void *phi_dev;
-};
-
-struct nbody_potential
-{
-    int N;
-    double eps2;
-    tyme_t t;
-    tyme_t dt;
-    struct massive_particle *p;
-};
 
 #endif
