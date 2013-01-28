@@ -6,6 +6,8 @@
 #define WITH_INTEGERS 0
 #define WITH_FLOATS 1
 
+typedef float real;
+
 #if WITH_INTEGERS
 typedef int64_t tyme_t;
 typedef int64_t pos_t;
@@ -26,12 +28,12 @@ typedef double  force_t;
 #endif
 
 #if WITH_FLOATS
-typedef double pos_t;
-typedef double dist_t;
-typedef double vel_t;
-typedef double acc_t;
-typedef double tyme_t;
-typedef double force_t;
+typedef real pos_t;
+typedef real dist_t;
+typedef real vel_t;
+typedef real acc_t;
+typedef real tyme_t;
+typedef real force_t;
 #define TIMET  F_TIMET 
 #define DISTT  F_DISTT 
 #define POST   F_POST  
@@ -44,9 +46,9 @@ typedef double force_t;
 #define SOFTT  F_SOFTT
 #endif
 
-typedef double mass_t;             /* Msun             */
-typedef double energy_t;           /* */
-typedef double soft_t;
+typedef real mass_t;             /* Msun             */
+typedef real energy_t;           /* */
+typedef real soft_t;
 
 struct image
 {

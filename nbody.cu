@@ -6,7 +6,7 @@
 #include "grandval.h"
 #include "nbody.h"
 
-static const size_t cuda_threads_per_block = 640;
+static const size_t cuda_threads_per_block = 512;
 
 struct nbody *nbody_init()
 {
@@ -60,14 +60,21 @@ void nbody_get_particles(struct nbody *nbody, struct particle **P, size_t *N)
         {
             fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
         }
+        //fprintf(stderr, "Updating host particles.\n");
         cudaMemcpy(nbody->P.P, nbody->P.Pdev, nbody->P.N * sizeof(*nbody->P.P), cudaMemcpyDeviceToHost);
+
+        err = cudaGetLastError();
+        if (err)
+        {
+            fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+        }
     }
 
     *P = nbody->P.P;
     *N = nbody->P.N;
 }
 
-__device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, size_t NPm, const double eps2, acc_t *out)
+__device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, size_t NPm, const dist_t eps2, acc_t *out)
 {
     size_t i;
 
@@ -80,10 +87,10 @@ __device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, siz
 
     for (i=0; i < NPm; i++)
     {
-        const double dx = Pm[i].x[0] - x;
-        const double dy = Pm[i].x[1] - y;
-        const double dz = Pm[i].x[2] - z;
-        const double r2 = dx*dx + dy*dy + dz*dz;
+        const dist_t dx = Pm[i].x[0] - x;
+        const dist_t dy = Pm[i].x[1] - y;
+        const dist_t dz = Pm[i].x[2] - z;
+        const dist_t r2 = dx*dx + dy*dy + dz*dz;
 
         //double rinv = 1.0 / sqrt(r2);
 
@@ -98,7 +105,7 @@ __device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, siz
 #if WITH_INTEGERS
         #define Fhat(x) round((Pm[i].m*(x) * pow(eps2 + r2, -3./2.)))
 #else
-        #define Fhat(x) ((Pm[i].m*(x) * pow(eps2 + r2, -1.5)))
+        #define Fhat(x) ((Pm[i].m*(x) * pow(eps2 + r2, -1.5F)))
 #endif
         out[0] += Fhat(dx);
         out[1] += Fhat(dy);
@@ -109,7 +116,7 @@ __device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, siz
     //fprintf(stderr, "\n");
 }
 
-__global__ void nbody_cuda_step_all(struct particle *P, size_t NP, struct massive_particle *Pm, size_t NPm, double eps2, tyme_t dt)
+__global__ void nbody_cuda_step_all(struct particle *P, size_t NP, struct massive_particle *Pm, size_t NPm, dist_t eps2, tyme_t dt)
 {
     int i;
     acc_t a[3];
@@ -140,6 +147,7 @@ void nbody_step_all(struct nbody *nbody, tyme_t dt)
     /* If the local particles are dirty, copy them to the device */
     if (nbody->P.P_dirty)
     {
+        //fprintf(stderr, "Updating device particles.\n");
         cudaMemcpy(nbody->P.Pdev, nbody->P.P, nbody->P.N * sizeof(*(nbody->P.Pdev)), cudaMemcpyHostToDevice);
         nbody->P.P_dirty = 0;
         nbody->P.Pdev_dirty = 0;
@@ -148,14 +156,27 @@ void nbody_step_all(struct nbody *nbody, tyme_t dt)
     /* If the local potential particles are dirty, copy them to the device */
     if (nbody->phi.P_dirty)
     {
+        //fprintf(stderr, "Updating device potential.\n");
         cudaMemcpy(nbody->phi.Pdev, nbody->phi.P, nbody->phi.N * sizeof(*nbody->phi.Pdev), cudaMemcpyHostToDevice);
         nbody->phi.P_dirty = 0;
         nbody->phi.Pdev_dirty = 0;
     }
 
-    cudaGetLastError();
-    nbody->P.Pdev_dirty = 1;
+    cudaError_t err = cudaGetLastError();
+    if (err)
+    {
+        fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+    }
+
+
     nbody_cuda_step_all<<<nblocks,nthreads>>>(nbody->P.Pdev, nbody->P.N, nbody->phi.Pdev, nbody->phi.N, nbody->phi.eps2, dt);
+    nbody->P.Pdev_dirty = 1;
+
+    err = cudaGetLastError();
+    if (err)
+    {
+        fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+    }
 }
 
 
@@ -163,7 +184,7 @@ static void nbody_accel_massive(struct nbody *nbody, struct massive_particle *p,
 {
     size_t i;
     struct massive_particle *mp = nbody->phi.P;
-    const double e2 = nbody->phi.eps2;
+    const dist_t e2 = nbody->phi.eps2;
 
     for (i=0; i < 3; i++)
         out[i] = 0;
@@ -176,14 +197,14 @@ static void nbody_accel_massive(struct nbody *nbody, struct massive_particle *p,
     {
         if (mp+i == p) continue;
 
-        const double dx = mp[i].x[0] - x;
-        const double dy = mp[i].x[1] - y;
-        const double dz = mp[i].x[2] - z;
-        const double r2 = dx*dx + dy*dy + dz*dz;
+        const dist_t dx = mp[i].x[0] - x;
+        const dist_t dy = mp[i].x[1] - y;
+        const dist_t dz = mp[i].x[2] - z;
+        const dist_t r2 = dx*dx + dy*dy + dz*dz;
 
-        double rinv = 1.0 / sqrt(r2);
+        dist_t rinv = 1.0 / sqrt(r2);
 
-        double re = sqrt(r2) * sqrt(e2);
+        dist_t re = sqrt(r2); // * sqrt(e2);
 
         #define PHI(r)     ( 1./sqrt(1.+pow((r),2)))
         #define GRADPHI(r) (pow(sqrt(1.+pow((r),2)), -3) * (r))
@@ -194,13 +215,13 @@ static void nbody_accel_massive(struct nbody *nbody, struct massive_particle *p,
 #if WITH_INTEGERS
         #define Fhat(x) round((mp[i].m*(x) * pow(e2 + r2, -3./2.)))
 #else
-        #define FhatMP(x) ((mp[i].m*(x) * pow(e2 + r2, -1.5)))
+        #define FhatMP(x) ((mp[i].m*(x) * pow(e2 + r2, -1.5F)))
 #endif
         out[0] += FhatMP(dx);
         out[1] += FhatMP(dy);
         out[2] += FhatMP(dz);
 
-        //int j; for (j=0; j < 3; j++) fprintf(stderr, "%i %e %e %e\n", j, Fhat(dx), Fhat(dy), Fhat(dz));
+        //fprintf(stderr, "%i %e %e %e\n", i, FhatMP(dx), FhatMP(dy), FhatMP(dz));
     }
     //fprintf(stderr, "\n");
 }
@@ -208,7 +229,7 @@ static void nbody_accel_massive(struct nbody *nbody, struct massive_particle *p,
 static void nbody_drift(struct nbody *nbody, struct massive_particle *p, tyme_t dt)
 {
     int i;
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
+    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt;
 }
 
 static void nbody_kick(struct nbody *nbody, struct massive_particle *p, tyme_t dt)
@@ -223,9 +244,9 @@ static void nbody_kick(struct nbody *nbody, struct massive_particle *p, tyme_t d
 static void nbody_step_potential(struct nbody *nbody, tyme_t dt)
 {
     size_t i;
-    for (i=0; i < nbody->phi.N; i++) nbody_drift(nbody, nbody->phi.P+i, dt);
+    for (i=0; i < nbody->phi.N; i++) nbody_drift(nbody, nbody->phi.P+i, dt/2);
     for (i=0; i < nbody->phi.N; i++) nbody_kick (nbody, nbody->phi.P+i, dt);
-    for (i=0; i < nbody->phi.N; i++) nbody_drift(nbody, nbody->phi.P+i, dt);
+    for (i=0; i < nbody->phi.N; i++) nbody_drift(nbody, nbody->phi.P+i, dt/2);
     nbody->phi.P_dirty = 1;
 }
 
@@ -234,19 +255,18 @@ void nbody_create_potential(struct nbody *nbody, int N)
     assert(N == 2);
 
     nbody->phi.N = N;
-    nbody->phi.eps2 = 0; //.01;
-    nbody->phi.dt = 0.0001;
+    nbody->phi.eps2 = 0.5;
+    nbody->phi.dt = 0.1;
     nbody->phi.t = 0;
 
     nbody->phi.P = (struct massive_particle *)malloc(N * sizeof(*nbody->phi.P));
 
-    double m  = 1e2;
-    double x  = 10;
-    double mu = m/2;
-    double v  = sqrt(mu / fabs(2*x));
+    mass_t m  = 1e2;    // Mass
+    dist_t x  = 3;     // Position rel. to 0
+    dist_t d = 2*x;     // Relative particle distance
 
-    //double d = 2*x;
-    //v = sqrt(m * d*x/pow(d*d + nbody->phi.eps2, 1.5));
+    d = sqrt(d*d + nbody->phi.eps2);    // Softened distance
+    vel_t v = sqrt(m / (2*d));         // Velocity
 
 
     nbody->phi.P[0].x[0] = x;
@@ -268,6 +288,8 @@ void nbody_create_potential(struct nbody *nbody, int N)
     nbody->phi.P[0].m = m;
     nbody->phi.P[1].m = m;
 
+    int i; for (i=0; i < nbody->phi.N; i++) nbody_kick (nbody, nbody->phi.P+i, nbody->phi.dt/2);
+
     cudaMalloc((void **)&nbody->phi.Pdev,     N * sizeof(*(nbody->phi.Pdev)));
     cudaMemcpy(nbody->phi.Pdev, nbody->phi.P, N * sizeof(*(nbody->phi.Pdev)), cudaMemcpyHostToDevice);
 }
@@ -284,7 +306,10 @@ void nbody_advance_potential(struct nbody *nbody, tyme_t t)
             nbody_step_potential(nbody, nbody->phi.dt);
 
         if (t > nbody->phi.t)
-            nbody_step_potential(nbody, t - nbody->phi.dt);
+        {
+            nbody_step_potential(nbody, t - nbody->phi.t);
+            nbody->phi.t += t - nbody->phi.t;
+        }
     }
 }
 

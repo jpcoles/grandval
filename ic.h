@@ -12,6 +12,7 @@ struct iclist
 
 void ic_random(struct particle *p, int N, pos_t R);
 void ic_circular(struct particle *p, int N, pos_t R);
+void ic_droplet(struct particle *p, int N, pos_t R, dist_t r);
 
 #endif
 

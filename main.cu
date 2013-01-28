@@ -87,7 +87,7 @@ void show_cuda_devices()
         printf("              regsPerBlock %d\n", deviceProp.regsPerBlock);
 
         cuda_threads_per_block = deviceProp.maxThreadsPerBlock;
-        cuda_threads_per_block = 640;
+        cuda_threads_per_block = 512;
         cuda_blocks_x = deviceProp.maxGridSize[0];
         cuda_blocks_y = deviceProp.maxGridSize[1];
     }
@@ -97,7 +97,7 @@ int main(int argc, char **argv)
 {
     size_t NP = 1000000;
     int curr_step;
-    int Ncaptures = 100;
+    int Ncaptures = 500;
 
     struct nbody *nbody;
 
@@ -113,14 +113,16 @@ int main(int argc, char **argv)
     image.image  = (unsigned char *)calloc(3 * image.nr * image.nc, sizeof(*image.image));
     image.hist = (int *)calloc(1 * image.nr * image.nc, sizeof(*image.hist));
 
-    tyme_t Tmax = 60;
+    tyme_t Tmax = 50;
     tyme_t t = 0;
-    tyme_t dt = .02;
+    tyme_t dt = .1;
 
     show_cuda_devices();
+    //return 0;
 
     //ic_random(P, NP, 100);
-    ic_circular(P, NP, 100);
+    ic_droplet(P, NP, 12, 1);
+    //ic_circular(P, NP, 100);
 
     nbody = nbody_init();
     nbody_set_particles(nbody, P, NP);
@@ -128,10 +130,18 @@ int main(int argc, char **argv)
 
     double t_next_capture = Tmax / Ncaptures;
     int curr_capture = 0;
+
+    nbody_step_all(nbody, dt);
+    nbody_advance_potential(nbody, 0);
+
+    P = 0;
+    NP = 0;
+    nbody_get_particles(nbody, &P, &NP);
+
     if (Ncaptures)
     {
-        capture(100, P, NP, &image, 1, grey);
-        capture_massive(100, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        capture(10, P, NP, &image, 1, grey);
+        capture_massive(10, nbody->phi.P, nbody->phi.N, &image, 0, red);
         save_snapshot(curr_capture, &image);
         curr_capture++;
     }
@@ -143,7 +153,6 @@ int main(int argc, char **argv)
         if (t > Tmax) t = Tmax;
 
         nbody_step_all(nbody, dt);
-        //phi.advance(&phi, t);
         nbody_advance_potential(nbody, t);
 
         nbody_get_particles(nbody, &P, &NP);
@@ -151,19 +160,20 @@ int main(int argc, char **argv)
         if (Ncaptures && t > t_next_capture)
         {
             //write_positions(P, NP, curr_step == 0);
-            capture(100, P, NP, &image, 1, grey);
-            capture_massive(100, nbody->phi.P, nbody->phi.N, &image, 0, red);
+            capture(10, P, NP, &image, 1, grey);
+            capture_massive(10, nbody->phi.P, nbody->phi.N, &image, 0, red);
             save_snapshot(curr_capture, &image);
             curr_capture++;
             t_next_capture += Tmax / Ncaptures;
         }
     }
 
+
     nbody_get_particles(nbody, &P, &NP);
     if (Ncaptures)
     {
-        capture(100, P, NP, &image, 1, grey);
-        capture_massive(100, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        capture(10, P, NP, &image, 1, grey);
+        capture_massive(10, nbody->phi.P, nbody->phi.N, &image, 0, red);
         save_snapshot(curr_capture, &image);
     }
     //write_positions(P, NP, curr_step == 0);

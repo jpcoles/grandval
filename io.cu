@@ -6,6 +6,7 @@
 #include "grandval.h"
 
 #include "io.h"
+#include "color_ramp.h"
 
 
 //==============================================================================
@@ -42,9 +43,24 @@ void capture(double radius, struct particle *P, size_t NP, struct image *image, 
     {
         for (c=0; c < image->nc; c++)
         {
+            float r,g,b;
+
+            r = g = b = 0;
+            if (image->hist[i] > 0)
+            {
+                r = g = b = scale > 0 ? image->hist[i] / scale : 0;
+                color_ramp_astro(&r,&g,&b);
+            }
+
+            image->image[3*i + 0] = r * 255;
+            image->image[3*i + 1] = g * 255;
+            image->image[3*i + 2] = b * 255;
+
+#if 0
             image->image[3*i + 0] = scale > 0 ? rgb[0] * image->hist[i] / scale : 0;
             image->image[3*i + 1] = scale > 0 ? rgb[1] * image->hist[i] / scale : 0;
             image->image[3*i + 2] = scale > 0 ? rgb[2] * image->hist[i] / scale : 0;
+#endif
             i++;
         }
     }

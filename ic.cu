@@ -40,3 +40,29 @@ void ic_circular(struct particle *p, int N, pos_t R)
         p[i].v[2] = 0;
     }
 }
+
+//==============================================================================
+//                                 ic_droplet
+//==============================================================================
+void ic_droplet(struct particle *p, int N, pos_t R, dist_t r)
+{
+    int i;
+    for (i=0; i < N; i++)
+    {
+        pos_t z = 2.0 * drand48() - 1.0;
+        pos_t t = 2.0 * M_PI * drand48();
+        pos_t x = sqrt(1-(z*z)) * cos(t);
+        pos_t y = sqrt(1-(z*z)) * sin(t);
+
+        x = 0 + x*r;
+        y = R + y*r;
+        z = 0 + z*r;
+
+        p[i].x[0] = x;
+        p[i].x[1] = y;
+        p[i].x[2] = z;
+        p[i].v[0] = 0;
+        p[i].v[1] = 0;
+        p[i].v[2] = 0;
+    }
+}
