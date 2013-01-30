@@ -1,5 +1,3 @@
-#include <cuda.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
@@ -8,11 +6,12 @@
 #include "nbody.h"
 #include "ic.h"
 #include "io.h"
+#include "options.h"
+#include "devices.h"
+#include "util.h"
 
 #define WITH_CUDA 1
 
-size_t cuda_threads_per_block;
-size_t cuda_blocks_x, cuda_blocks_y;
 
 
 #if 0
@@ -64,148 +63,6 @@ void step_all(struct potential *phi, struct particle *P, size_t NP, tyme_t dt)
 }
 #endif
 
-void show_cuda_devices()
-{
-    int deviceCount;
-    cudaGetDeviceCount(&deviceCount);
-    int device;
-    if (deviceCount == 0)
-    {
-        printf("No CUDA devices found.\n");
-    }
-
-    for (device = 0; device < deviceCount; ++device) 
-    {
-        cudaDeviceProp deviceProp;
-        cudaGetDeviceProperties(&deviceProp, device);
-        printf("Device %d has compute capability %d.%d.\n", device, deviceProp.major, deviceProp.minor);
-        printf("              totalGlobalMem %ld (approx. %ld particles).\n", deviceProp.totalGlobalMem, deviceProp.totalGlobalMem / (sizeof(struct particle)));
-        printf("              maxThreadsPerMultiProcessor %d.\n", deviceProp.maxThreadsPerMultiProcessor);
-        printf("              maxThreadsPerBlock %d.\n", deviceProp.maxThreadsPerBlock);
-        printf("              maxThreadsDim %d,%d,%d.\n", deviceProp.maxThreadsDim[0], deviceProp.maxThreadsDim[1], deviceProp.maxThreadsDim[2]);
-        printf("              maxGridSize %d,%d,%d.\n", deviceProp.maxGridSize[0], deviceProp.maxGridSize[1], deviceProp.maxGridSize[2]);
-        printf("              warpSize %d\n", deviceProp.warpSize);
-        printf("              regsPerBlock %d\n", deviceProp.regsPerBlock);
-
-        cuda_threads_per_block = deviceProp.maxThreadsPerBlock;
-        cuda_threads_per_block = 512;
-        cuda_blocks_x = deviceProp.maxGridSize[0];
-        cuda_blocks_y = deviceProp.maxGridSize[1];
-    }
-}
-
-int select_cuda_device(int device)
-{
-    int deviceCount;
-    cudaGetDeviceCount(&deviceCount);
-    if (deviceCount == 0)
-    {
-        printf("No CUDA devices found.\n");
-        return 0;
-    }
-
-    if (device >= deviceCount)
-        return 0;
-
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, device);
-    cudaError_t err = cudaGetLastError();
-    if (err)
-    {
-        eprintf("Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
-        return 0;
-    }
-
-    printf("Device %d has compute capability %d.%d.\n", device, deviceProp.major, deviceProp.minor);
-    printf("              totalGlobalMem %ld (approx. %ld particles).\n", deviceProp.totalGlobalMem, deviceProp.totalGlobalMem / (sizeof(struct particle)));
-    printf("              maxThreadsPerMultiProcessor %d.\n", deviceProp.maxThreadsPerMultiProcessor);
-    printf("              maxThreadsPerBlock %d.\n", deviceProp.maxThreadsPerBlock);
-    printf("              maxThreadsDim %d,%d,%d.\n", deviceProp.maxThreadsDim[0], deviceProp.maxThreadsDim[1], deviceProp.maxThreadsDim[2]);
-    printf("              maxGridSize %d,%d,%d.\n", deviceProp.maxGridSize[0], deviceProp.maxGridSize[1], deviceProp.maxGridSize[2]);
-    printf("              warpSize %d\n", deviceProp.warpSize);
-    printf("              regsPerBlock %d\n", deviceProp.regsPerBlock);
-
-    cuda_threads_per_block = deviceProp.maxThreadsPerBlock;
-    cuda_threads_per_block = 512;
-    cuda_blocks_x = deviceProp.maxGridSize[0];
-    cuda_blocks_y = deviceProp.maxGridSize[1];
-
-    return 1;
-}
-
-void show_devices()
-{
-    show_cuda_devices();
-}
-
-void usage()
-{
-    eprintf("grandval\n");
-}
-
-void parse_command_line(int argc, char **argv, struct program_options *opt)
-{
-    int option_index = 0;
-    static struct option long_options[] = 
-    {
-        {"seed",            1, 0, 0},
-        {"verbosity",       1, 0, 0},
-        {"dt",              1, 0, 0},
-        {"ic",              1, 0, 0},
-        {"Nimages",         1, 0, 0},
-        {"Rimages",         1, 0, 0},
-        {"show-ics",        0, 0, 0},
-        {"show-devices",    0, 0, 0},
-        {"cuda-device",     0, 0, 0},
-        {0, 0, 0, 0}
-    };
-
-    while (1)
-    {
-        int c = getopt_long(argc, argv, "N:vR:", long_options, &option_index);
-        if (c == -1)
-            break;
-
-        switch (c) 
-        {
-            case 0:
-                     if OPTSTR("dt")              SET_OPTION(opt->dt, atof(optarg));
-                else if OPTSTR("Tmax")            SET_OPTION(opt->Tmax, atof(optarg));
-                else if OPTSTR("Nimages")         SET_OPTION(opt->Nimages, atoi(optarg));
-                else if OPTSTR("Rimages")         SET_OPTION(opt->Rimages, atof(optarg));
-                else if OPTSTR("ic")              SET_OPTION(opt->ic_name, optarg);
-
-                else if OPTSTR("show-ics")
-                {
-                    show_initial_conditions();
-                    exit(EXIT_SUCCESS);
-                }
-                else if OPTSTR("show-devices")
-                {
-                    show_devices();
-                    exit(EXIT_SUCCESS);
-                }
-                else if OPTSTR("cuda-device")
-                {
-                    SET_OPTION(opt->cuda_device, atoi(optarg));
-                    exit(EXIT_SUCCESS);
-                }
-                break;
-
-            case 'N': SET_OPTION(opt->Nparticles, atol(optarg)); break;
-            case 'R': SET_OPTION(opt->R,          atof(optarg)); break;
-
-            case ':':
-            case '?':
-                exit(EXIT_FAILURE);
-            default:
-                usage();
-                exit(EXIT_FAILURE);
-                break;
-        }
-    }
-}
-
 
 int main(int argc, char **argv)
 {
@@ -215,19 +72,26 @@ int main(int argc, char **argv)
     tyme_t dt;
     dist_t R;
 
-    int Ncaptures;
+    int ret_code = EXIT_SUCCESS;
+
+    struct potential phi;
 
     struct program_options default_opts;
     memset(&default_opts, 0, sizeof(default_opts));
 
-
-    SET_OPTION(default_opts.Nparticles, 1000);
-    SET_OPTION(default_opts.dt,         0.1);
-    SET_OPTION(default_opts.Tmax,       50);
-    SET_OPTION(default_opts.R,          10);
-    SET_OPTION(default_opts.Nimages,    500);
-    SET_OPTION(default_opts.Rimages,    10);
-    SET_OPTION(default_opts.ic_name,    "line");
+    SET_OPTION(default_opts.Nparticles,             1000);
+    SET_OPTION(default_opts.dt,                     0.1);
+    SET_OPTION(default_opts.Tmax,                   50);
+    SET_OPTION(default_opts.R,                      10);
+    SET_OPTION(default_opts.Nimages,                500);
+    SET_OPTION(default_opts.Rimages,                10);
+    SET_OPTION(default_opts.ic_name,                "line");
+    SET_OPTION(default_opts.potential_name,         "nbody");
+    SET_OPTION(default_opts.Nsnapshots,             0);
+    SET_OPTION(default_opts.snapshot_name,          "gv-");
+    SET_OPTION(default_opts.snapshot_format,        "ascii");
+    SET_OPTION(default_opts.image_name,             "gv-");
+    SET_OPTION(default_opts.image_format,           "png");
 
     struct program_options opts;
     memset(&opts, 0, sizeof(opts));
@@ -237,26 +101,75 @@ int main(int argc, char **argv)
     struct nbody *nbody;
     ic_function ic_f;
 
-    int cuda_device=0;
-
     int red[3] = {255,0,0};
     int grey[3] = {255,255,255};
 
 
     struct image image;
-    image.nc = 512;
-    image.nr = 512;
-    image.image  = (unsigned char *)calloc(3 * image.nr * image.nc, sizeof(*image.image));
-    image.hist = (int *)calloc(1 * image.nr * image.nc, sizeof(*image.hist));
-    dist_t Rcapture;
+    struct io io;
+
+    double t_next_capture=0;
+    int curr_capture=0;
+
+    double t_next_save=0;
+    int curr_save=0;
+
+    nbody_init(&phi);
+    add_potential(&phi);
 
     parse_command_line(argc, argv, &opts);
+
+#define ASSIGN_OPTION(v, k, o, d) do { if (o.k ## _set) { v=o.k; } else {v = d.k;} } while (0)
+    ASSIGN_OPTION(NP, Nparticles, opts, default_opts);
+    ASSIGN_OPTION(dt, dt, opts, default_opts);
+    ASSIGN_OPTION(Tmax, Tmax, opts, default_opts);
+    ASSIGN_OPTION(R, R, opts, default_opts);
+
+    if (opts.Nimages_set)
+    {
+        assert(opts.Rimages_set);
+        ASSIGN_OPTION(image.name,   image_name,   opts, default_opts);
+        ASSIGN_OPTION(image.format, image_format, opts, default_opts);
+        if (!check_image_format(image.format))
+        {
+            eprintf("Image format not supported (%s).\n", image.format);
+            exit(EXIT_FAILURE);
+        }
+
+        image.nc = 512;
+        image.nr = 512;
+        image.image  = (unsigned char *)calloc(3 * image.nr * image.nc, sizeof(*image.image));
+        image.hist = (int *)calloc(1 * image.nr * image.nc, sizeof(*image.hist));
+
+        t_next_capture = Tmax / opts.Nimages;
+        curr_capture = 0;
+    }
+
+    if (opts.Nsnapshots_set)
+    {
+        if (opts.Nsnapshots < 0)
+        {
+            eprintf("Number of snapshots requested must not be negative (%ld)\n", opts.Nsnapshots);
+            exit(EXIT_FAILURE);
+        }
+
+        ASSIGN_OPTION(io.name,   snapshot_name,   opts, default_opts);
+        ASSIGN_OPTION(io.format, snapshot_format, opts, default_opts);
+        if (!check_snapshot_format(io.format))
+        {
+            eprintf("Snapshot format not supported (%s).\n", io.format);
+            exit(EXIT_FAILURE);
+        }
+
+        t_next_save = Tmax / opts.Nsnapshots;
+        curr_save = 0;
+    }
 
     if (opts.ic_name_set)
     {
         if (!find_ic(opts.ic_name, &ic_f))
         {
-            eprintf("Unknown initial condition (%s)\n", optarg);
+            eprintf("Unknown initial condition (%s)\n", opts.ic_name);
             exit(EXIT_FAILURE);
         }
     }
@@ -265,24 +178,22 @@ int main(int argc, char **argv)
         assert(find_ic(default_opts.ic_name, &ic_f));
     }
 
-#define ASSIGN_OPTION(v, k, o, d) do { if (o.k ## _set) { v=o.k; } else {v = d.k;} } while (0)
-    ASSIGN_OPTION(NP, Nparticles, opts, default_opts);
-    ASSIGN_OPTION(dt, dt, opts, default_opts);
-    ASSIGN_OPTION(cuda_device, cuda_device, opts, default_opts);
-    ASSIGN_OPTION(Tmax, Tmax, opts, default_opts);
-    ASSIGN_OPTION(Rcapture, Rimages, opts, default_opts);
-    ASSIGN_OPTION(Ncaptures, Nimages, opts, default_opts);
-    ASSIGN_OPTION(R, R, opts, default_opts);
+    if (opts.potential_name_set)
+    {
+        if (!find_potential(opts.potential_name, &phi))
+        {
+            eprintf("Unknown potential (%s)\n", opts.potential_name);
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        assert(find_potential(default_opts.potential_name, &phi));
+    }
 
-    eprintf("NP %ld\n", NP);
-    eprintf("dt %f\n", dt);
-    eprintf("cuda device %i\n", cuda_device);
-    eprintf("Tmax %f\n", Tmax);
-    eprintf("Rcapture %f\n", Rcapture);
-    eprintf("Ncaptures %i\n", Ncaptures);
-    eprintf("R %f\n", R);
+    show_options(&opts, &default_opts);
 
-    if (!select_cuda_device(cuda_device))
+    if (!select_cuda_device(opts.cuda_device))
         exit(EXIT_FAILURE);
 
     struct particle *P = (struct particle *)malloc(NP * sizeof(*P));
@@ -290,29 +201,22 @@ int main(int argc, char **argv)
 
     ic_f(P, NP, R);
 
-    struct potential phi;
 
-    void *phi_data = nbody_init(&phi);
+    void *phi_data = phi.create(2);
     nbody = (struct nbody *)phi_data;
-    nbody_create_potential(nbody, 2);
 
     phi.set_particles(phi_data, P, NP);
 
-    double t_next_capture = Tmax / Ncaptures;
-    int curr_capture = 0;
-
-    phi.step_particles(phi_data, dt);
-    phi.advance(phi_data, 0);
 
     P = 0;
     NP = 0;
     phi.get_particles(phi_data, &P, &NP);
 
-    if (Ncaptures)
+    if (opts.Nimages_set && opts.Nimages)
     {
-        capture(Rcapture, P, NP, &image, 1, grey);
-        capture_massive(Rcapture, nbody->phi.P, nbody->phi.N, &image, 0, red);
-        save_snapshot(curr_capture, &image);
+        capture(opts.Rimages, P, NP, &image, 1, grey);
+        capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        save_image(curr_capture, &image);
         curr_capture++;
     }
 
@@ -322,35 +226,52 @@ int main(int argc, char **argv)
     {
         if (t > Tmax) t = Tmax;
 
-        phi.step_particles(phi_data, dt);
-        phi.advance(phi_data, t);
-        phi.get_particles(phi_data, &P, &NP);
+        if (!phi.step_particles(phi_data, dt)) goto fail;
+        if (!phi.advance(phi_data, t)) goto fail;
+        if (!phi.get_particles(phi_data, &P, &NP)) goto fail;
 
-        if (Ncaptures && t > t_next_capture)
+        if (opts.Nimages_set && opts.Nimages > 0 && t > t_next_capture)
         {
             //write_positions(P, NP, curr_step == 0);
-            capture(Rcapture, P, NP, &image, 1, grey);
-            capture_massive(Rcapture, nbody->phi.P, nbody->phi.N, &image, 0, red);
-            save_snapshot(curr_capture, &image);
+            capture(opts.Rimages, P, NP, &image, 1, grey);
+            capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
+            save_image(curr_capture, &image);
             curr_capture++;
-            t_next_capture += Tmax / Ncaptures;
+            t_next_capture += Tmax / opts.Nimages;
+        }
+
+        if (opts.Nsnapshots_set && opts.Nsnapshots > 0 && t > t_next_save)
+        {
+            if (!save_snapshot(curr_save, &io, P, NP))
+                goto fail;
         }
     }
 
 
     phi.get_particles(phi_data, &P, &NP);
-    //nbody_get_particles(nbody, &P, &NP);
-    if (Ncaptures)
+    if (opts.Nimages_set && opts.Nimages > 0 && t > t_next_capture)
     {
-        capture(Rcapture, P, NP, &image, 1, grey);
-        capture_massive(Rcapture, nbody->phi.P, nbody->phi.N, &image, 0, red);
-        save_snapshot(curr_capture, &image);
+        capture(opts.Rimages, P, NP, &image, 1, grey);
+        capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        save_image(curr_capture, &image);
     }
-    //write_positions(P, NP, curr_step == 0);
 
-    //nbody_free(nbody);
+    if (opts.Nsnapshots_set && opts.Nsnapshots > 0 && t > t_next_save)
+    {
+        if (!save_snapshot(curr_save, &io, P, NP))
+            goto fail;
+    }
+
+    goto cleanup;
+
+fail:
+    print_errmsg();
+    ret_code = EXIT_FAILURE;
+
+cleanup:
+
     phi.free(phi_data);
 
-    return 0;
+    return ret_code;
 }
 

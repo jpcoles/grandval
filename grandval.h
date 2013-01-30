@@ -56,6 +56,8 @@ typedef real soft_t;
 
 struct image
 {
+    char *name;
+    char *format;
     int nr, nc;
     unsigned char *image;
     int *hist;
@@ -76,14 +78,22 @@ struct __align__(16) massive_particle
 
 struct program_options
 {
-    int Nparticles;         int Nparticles_set;
+    size_t Nparticles;      int Nparticles_set;
     tyme_t dt;              int dt_set;
     tyme_t Tmax;            int Tmax_set;
     int Nimages;            int Nimages_set;
     dist_t Rimages;         int Rimages_set;
     dist_t R;               int R_set;
     char *ic_name;          int ic_name_set;
+    char *potential_name;   int potential_name_set;
     int cuda_device;        int cuda_device_set;
+
+    size_t Nsnapshots;      int Nsnapshots_set;
+    char *snapshot_name;    int snapshot_name_set;
+    char *snapshot_format;  int snapshot_format_set;
+
+    char *image_name;       int image_name_set;
+    char *image_format;     int image_format_set;
 };
 
 

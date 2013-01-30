@@ -5,21 +5,21 @@
 #include <math.h>
 #include "grandval.h"
 #include "nbody.h"
+#include "util.h"
 
 static const size_t cuda_threads_per_block = 512;
 
-struct nbody *nbody_init(struct potential *phi)
+void nbody_init(struct potential *phi)
 {
-    struct nbody *nb = (struct nbody *)calloc(1, sizeof(*nb));
-    assert(nb != NULL);
+    phi->name = "nbody";
+    phi->desc = "Two body potential.";
 
+    phi->create         = nbody_create_potential;
     phi->set_particles  = nbody_set_particles;
     phi->get_particles  = nbody_get_particles;
     phi->step_particles = nbody_step_particles;
     phi->advance        = nbody_advance_potential;
     phi->free           = nbody_free;
-
-    return nb;
 }
 
 void nbody_free(void *phi_data)
@@ -60,7 +60,7 @@ void nbody_set_particles(void *phi_data, struct particle *P, size_t N)
     cudaMalloc((void **)&nbody->P.Pdev, N * sizeof(*(nbody->P.Pdev)));
 }
 
-void nbody_get_particles(void *phi_data, struct particle **P, size_t *N)
+int nbody_get_particles(void *phi_data, struct particle **P, size_t *N)
 {
     struct nbody *nbody = (struct nbody *)phi_data;
 
@@ -70,20 +70,23 @@ void nbody_get_particles(void *phi_data, struct particle **P, size_t *N)
         cudaError_t err = cudaGetLastError();
         if (err)
         {
-            fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+            errmsg("CUDA synchronize failed %i: %s\n", err, cudaGetErrorString(err));
+            return 0;
         }
         //fprintf(stderr, "Updating host particles.\n");
         cudaMemcpy(nbody->P.P, nbody->P.Pdev, nbody->P.N * sizeof(*nbody->P.P), cudaMemcpyDeviceToHost);
-
         err = cudaGetLastError();
         if (err)
         {
-            fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+            errmsg("CUDA memory copy from device failed %i: %s\n", err, cudaGetErrorString(err));
+            return 0;
         }
     }
 
     *P = nbody->P.P;
     *N = nbody->P.N;
+
+    return 1;
 }
 
 __device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, size_t NPm, const dist_t eps2, acc_t *out)
@@ -144,8 +147,9 @@ __global__ void nbody_cuda_step_all(struct particle *P, size_t NP, struct massiv
     for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
 }
 
-void nbody_step_particles(void *phi_data, tyme_t dt)
+int nbody_step_particles(void *phi_data, tyme_t dt)
 {
+    cudaError_t err;
     struct nbody *nbody = (struct nbody *)phi_data;
 
     static int first_time = 1;
@@ -163,6 +167,13 @@ void nbody_step_particles(void *phi_data, tyme_t dt)
     {
         //fprintf(stderr, "Updating device particles.\n");
         cudaMemcpy(nbody->P.Pdev, nbody->P.P, nbody->P.N * sizeof(*(nbody->P.Pdev)), cudaMemcpyHostToDevice);
+        err = cudaGetLastError();
+        if (err)
+        {
+            errmsg("CUDA memory copy to device failed (%i): %s", err, cudaGetErrorString(err));
+            return 0;
+        }
+
         nbody->P.P_dirty = 0;
         nbody->P.Pdev_dirty = 0;
     }
@@ -172,25 +183,27 @@ void nbody_step_particles(void *phi_data, tyme_t dt)
     {
         //fprintf(stderr, "Updating device potential.\n");
         cudaMemcpy(nbody->phi.Pdev, nbody->phi.P, nbody->phi.N * sizeof(*nbody->phi.Pdev), cudaMemcpyHostToDevice);
+        err = cudaGetLastError();
+        if (err)
+        {
+            errmsg("CUDA memory copy to device failed (%i): %s", err, cudaGetErrorString(err));
+            return 0;
+        }
         nbody->phi.P_dirty = 0;
         nbody->phi.Pdev_dirty = 0;
     }
 
-    cudaError_t err = cudaGetLastError();
-    if (err)
-    {
-        fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
-    }
-
-
     nbody_cuda_step_all<<<nblocks,nthreads>>>(nbody->P.Pdev, nbody->P.N, nbody->phi.Pdev, nbody->phi.N, nbody->phi.eps2, dt);
-    nbody->P.Pdev_dirty = 1;
-
     err = cudaGetLastError();
     if (err)
     {
-        fprintf(stderr, "Kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+        errmsg("CUDA kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+        return 0;
     }
+
+    nbody->P.Pdev_dirty = 1;
+
+    return 1;
 }
 
 
@@ -264,8 +277,11 @@ static void nbody_step_potential(struct nbody *nbody, tyme_t dt)
     nbody->phi.P_dirty = 1;
 }
 
-void nbody_create_potential(struct nbody *nbody, int N)
+void *nbody_create_potential(size_t N)
 {
+    struct nbody *nbody = (struct nbody *)calloc(1, sizeof(*nbody));
+    assert(nbody != NULL);
+
     assert(N == 2);
 
     nbody->phi.N = N;
@@ -306,9 +322,11 @@ void nbody_create_potential(struct nbody *nbody, int N)
 
     cudaMalloc((void **)&nbody->phi.Pdev,     N * sizeof(*(nbody->phi.Pdev)));
     cudaMemcpy(nbody->phi.Pdev, nbody->phi.P, N * sizeof(*(nbody->phi.Pdev)), cudaMemcpyHostToDevice);
+
+    return nbody;
 }
 
-void nbody_advance_potential(void *phi_data, tyme_t t)
+int nbody_advance_potential(void *phi_data, tyme_t t)
 {
     struct nbody *nbody = (struct nbody *)phi_data;
 
@@ -327,6 +345,8 @@ void nbody_advance_potential(void *phi_data, tyme_t t)
             nbody->phi.t += t - nbody->phi.t;
         }
     }
+
+    return 1;
 }
 
 

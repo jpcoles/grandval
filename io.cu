@@ -1,13 +1,32 @@
+#include <assert.h>
 #include <png.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdarg.h>
 #include "grandval.h"
 
 #include "io.h"
+#include "util.h"
 #include "color_ramp.h"
 
+static struct
+{
+    char *name;
+    char *desc;
+} supported_image_formats[] = { 
+    {"png", "Portable Network Graphic"}, 
+    {NULL, NULL} 
+};
+
+static struct
+{
+    char *name;
+    char *desc;
+} supported_snapshot_formats[] = { 
+    {"ascii", "ASCII Text. Space separated values. Header in comments."}, 
+    {"csv", "ASCII Text. Comma separated values. Header in comments."}, 
+    {NULL, NULL} 
+};
 
 //==============================================================================
 //                                  capture
@@ -89,47 +108,40 @@ void capture_massive(dist_t radius, struct massive_particle *P, size_t NP, struc
     }
 }
 
-static char *make_message(const char *fmt, ...)
+
+void show_image_formats()
 {
-    /* Guess we need no more than 100 bytes. */
-    int n, size = 100;
-    char *p, *np;
-    va_list ap;
-
-    if ((p = (char *)malloc(size)) == NULL)
-        return NULL;
-
-    while (1) 
+    int i;
+    for (i=0; supported_image_formats[i].name != NULL; i++)
     {
-        /* Try to print in the allocated space. */
-        va_start(ap, fmt);
-        n = vsnprintf(p, size, fmt, ap);
-        va_end(ap);
-        /* If that worked, return the string. */
-        if (n > -1 && n < size)
-            return p;
-        /* Else try again with more space. */
-        if (n > -1)    /* glibc 2.1 */
-            size = n+1; /* precisely what is needed */
-        else           /* glibc 2.0 */
-            size *= 2;  /* twice the old size */
-        if ((np = (char *)realloc (p, size)) == NULL) 
-        {
-            free(p);
-            return NULL;
-        } else {
-            p = np;
-        }
+        eprintf("%s - %s\n", supported_image_formats[i].name, supported_image_formats[i].desc);
     }
 }
 
-//==============================================================================
-//                               save_snapshot
-//==============================================================================
-void save_snapshot(int step, struct image *image)
+int check_image_format(char *f)
 {
-    char *fname = make_message("gv-%05i.png", step);
-    save_image_png(fname, image->image, image->nr, image->nc);
+    int i;
+    for (i=0; supported_image_formats[i].name != NULL; i++)
+    {
+        if (!strcmp(f, supported_image_formats[i].name))
+            return 1;
+    }
+    return 0;
+}
+
+//==============================================================================
+//                               save_image
+//==============================================================================
+void save_image(int step, struct image *image)
+{
+    char *fname = make_message("%s%05i.%s", image->name, step, image->format);
+    if (!strcmp("png", image->format))
+        save_image_png(fname, image->image, image->nr, image->nc);
+    else
+    {
+        // We should already have checked that the user specified format was supported.
+        assert(0); 
+    }
     free(fname);
 }
 
@@ -181,4 +193,80 @@ int save_image_png(char *fname, unsigned char *image, uint32_t nrows, uint32_t n
     fclose(fp);
 
     return 0;
+}
+
+void show_snapshot_formats()
+{
+    int i;
+    for (i=0; supported_snapshot_formats[i].name != NULL; i++)
+    {
+        eprintf("%s - %s\n", supported_snapshot_formats[i].name, 
+                             supported_snapshot_formats[i].desc);
+    }
+}
+
+int check_snapshot_format(char *f)
+{
+    int i;
+    for (i=0; supported_snapshot_formats[i].name != NULL; i++)
+    {
+        if (!strcmp(f, supported_snapshot_formats[i].name))
+            return 1;
+    }
+    return 0;
+}
+
+int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_sep)
+{
+    size_t i;
+    int ret_code = 1;
+
+    FILE *fp = fopen(fname, "wt");
+    if (!fp)
+    {
+        errmsg("Can't open file for writing (%s)", fname);
+        ret_code = 0;
+        goto cleanup;
+    }
+
+    for (i=0; i < NP; i++)
+    {
+        fprintf(fp, "x\n");
+    }
+
+    fclose(fp);
+
+cleanup:
+
+    return ret_code;
+}
+
+int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
+{
+    int ret_code = 1;
+    char *fname = make_message("%s%05i.%s", io->name, step, io->format);
+
+    FILE *fp = fopen(fname, "r+");
+    if (fp != NULL && io->overwrite)
+    {
+        errmsg("File already exists and overwriting is was not allowed (%s).", fname);
+        ret_code = 0;
+        goto cleanup;
+    }
+    fclose(fp);
+
+    eprintf("Writing to %s\n", fname);
+
+    if (!strcmp("ascii", io->format))
+        return save_snapshot_ascii(fname, P, NP, " ");
+    if (!strcmp("csv", io->format))
+        return save_snapshot_ascii(fname, P, NP, ",");
+    else
+        assert(0);
+
+cleanup:
+
+    free(fname);
+
+    return ret_code;
 }
