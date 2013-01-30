@@ -12,7 +12,7 @@
 //==============================================================================
 //                                  capture
 //==============================================================================
-void capture(double radius, struct particle *P, size_t NP, struct image *image, int clear, int rgb[3])
+void capture(dist_t radius, struct particle *P, size_t NP, struct image *image, int clear, int rgb[3])
 {
     int32_t r, c;
     double scale = 0;
@@ -66,7 +66,7 @@ void capture(double radius, struct particle *P, size_t NP, struct image *image, 
     }
 }
 
-void capture_massive(double radius, struct massive_particle *P, size_t NP, struct image *image, int clear, int rgb[3])
+void capture_massive(dist_t radius, struct massive_particle *P, size_t NP, struct image *image, int clear, int rgb[3])
 {
     int32_t r, c;
 

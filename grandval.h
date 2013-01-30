@@ -6,6 +6,10 @@
 #define WITH_INTEGERS 0
 #define WITH_FLOATS 1
 
+#define SET_OPTION(o,v) do { o = v; o ## _set = 1; } while (0)
+#define OPTSTR(s) (!strcmp(s, long_options[option_index].name))
+#define eprintf(...) do { fprintf (stderr, __VA_ARGS__); } while (0)
+
 typedef float real;
 
 #if WITH_INTEGERS
@@ -68,6 +72,18 @@ struct __align__(16) massive_particle
     pos_t x[3];
     vel_t v[3];
     mass_t m;
+};
+
+struct program_options
+{
+    int Nparticles;         int Nparticles_set;
+    tyme_t dt;              int dt_set;
+    tyme_t Tmax;            int Tmax_set;
+    int Nimages;            int Nimages_set;
+    dist_t Rimages;         int Rimages_set;
+    dist_t R;               int R_set;
+    char *ic_name;          int ic_name_set;
+    int cuda_device;        int cuda_device_set;
 };
 
 

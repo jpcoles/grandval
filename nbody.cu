@@ -8,15 +8,24 @@
 
 static const size_t cuda_threads_per_block = 512;
 
-struct nbody *nbody_init()
+struct nbody *nbody_init(struct potential *phi)
 {
     struct nbody *nb = (struct nbody *)calloc(1, sizeof(*nb));
     assert(nb != NULL);
+
+    phi->set_particles  = nbody_set_particles;
+    phi->get_particles  = nbody_get_particles;
+    phi->step_particles = nbody_step_particles;
+    phi->advance        = nbody_advance_potential;
+    phi->free           = nbody_free;
+
     return nb;
 }
 
-void nbody_free(struct nbody *nbody)
+void nbody_free(void *phi_data)
 {
+    struct nbody *nbody = (struct nbody *)phi_data;
+
     if (nbody->P.P != NULL)
     {
         free(nbody->P.P);
@@ -42,16 +51,19 @@ void nbody_free(struct nbody *nbody)
     }
 }
 
-void nbody_set_particles(struct nbody *nbody, struct particle *P, size_t N)
+void nbody_set_particles(void *phi_data, struct particle *P, size_t N)
 {
+    struct nbody *nbody = (struct nbody *)phi_data;
     nbody->P.N = N;
     nbody->P.P = P;
     nbody->P.P_dirty = 1;
     cudaMalloc((void **)&nbody->P.Pdev, N * sizeof(*(nbody->P.Pdev)));
 }
 
-void nbody_get_particles(struct nbody *nbody, struct particle **P, size_t *N)
+void nbody_get_particles(void *phi_data, struct particle **P, size_t *N)
 {
+    struct nbody *nbody = (struct nbody *)phi_data;
+
     if (nbody->P.Pdev_dirty)
     {
         cudaDeviceSynchronize();
@@ -132,8 +144,10 @@ __global__ void nbody_cuda_step_all(struct particle *P, size_t NP, struct massiv
     for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
 }
 
-void nbody_step_all(struct nbody *nbody, tyme_t dt)
+void nbody_step_particles(void *phi_data, tyme_t dt)
 {
+    struct nbody *nbody = (struct nbody *)phi_data;
+
     static int first_time = 1;
     int nblocks  = (nbody->P.N + cuda_threads_per_block - 1) / cuda_threads_per_block;
     int nthreads = nbody->P.N < cuda_threads_per_block ? nbody->P.N : cuda_threads_per_block;
@@ -294,8 +308,10 @@ void nbody_create_potential(struct nbody *nbody, int N)
     cudaMemcpy(nbody->phi.Pdev, nbody->phi.P, N * sizeof(*(nbody->phi.Pdev)), cudaMemcpyHostToDevice);
 }
 
-void nbody_advance_potential(struct nbody *nbody, tyme_t t)
+void nbody_advance_potential(void *phi_data, tyme_t t)
 {
+    struct nbody *nbody = (struct nbody *)phi_data;
+
     assert(t >= nbody->phi.t);
 
     if (t != nbody->phi.t)
