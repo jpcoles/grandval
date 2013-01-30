@@ -224,8 +224,9 @@ int main(int argc, char **argv)
     SET_OPTION(default_opts.Nparticles, 1000);
     SET_OPTION(default_opts.dt,         0.1);
     SET_OPTION(default_opts.Tmax,       50);
-    SET_OPTION(default_opts.R,          0);
+    SET_OPTION(default_opts.R,          10);
     SET_OPTION(default_opts.Nimages,    500);
+    SET_OPTION(default_opts.Rimages,    10);
     SET_OPTION(default_opts.ic_name,    "line");
 
     struct program_options opts;
@@ -324,8 +325,6 @@ int main(int argc, char **argv)
         phi.step_particles(phi_data, dt);
         phi.advance(phi_data, t);
         phi.get_particles(phi_data, &P, &NP);
-
-        fprintf(stderr, "Rcapture %f\n", Rcapture);
 
         if (Ncaptures && t > t_next_capture)
         {
