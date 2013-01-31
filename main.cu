@@ -12,21 +12,6 @@
 
 #define WITH_CUDA 1
 
-
-
-#if 0
-void step(struct potential *phi, struct particle *p, tyme_t dt)
-{
-    int i;
-    acc_t a[3];
-
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
-    phi->accel(phi, p, a);
-    for (i=0; i < 3; i++) p->v[i] +=    a[i] * dt;
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
-}
-#endif
-
 void write_positions(struct particle *P, size_t NP, int first_output)
 {
     size_t i;
@@ -52,17 +37,6 @@ void write_positions(struct particle *P, size_t NP, int first_output)
         //fclose(fp);
     }
 }
-
-#if 0
-void step_all(struct potential *phi, struct particle *P, size_t NP, tyme_t dt)
-{
-    size_t i;
-    #pragma omp parallel for
-    for (i=0; i < NP; i++)
-        step(phi, P + i, dt);
-}
-#endif
-
 
 int main(int argc, char **argv)
 {
