@@ -10,34 +10,6 @@
 #include "devices.h"
 #include "util.h"
 
-#define WITH_CUDA 1
-
-void write_positions(struct particle *P, size_t NP, int first_output)
-{
-    size_t i;
-    char *mode;
-    char fname[256];
-
-    if (first_output)
-        mode = "w";
-    else
-        mode = "a+";
-
-    FILE *fp = stdout;
-
-    for (i=0; i < NP; i++)
-    {
-        //sprintf(fname, "gv-%05i.out", i);
-        //FILE *fp = fopen(fname, mode);
-#if WITH_INTEGERS
-        fprintf(fp, "%ld %ld %ld\n", P[i].x[0], P[i].x[1], P[i].x[2]);
-#else
-        fprintf(fp, "%f %f %f\n", P[i].x[0], P[i].x[1], P[i].x[2]);
-#endif
-        //fclose(fp);
-    }
-}
-
 int main(int argc, char **argv)
 {
     size_t NP;

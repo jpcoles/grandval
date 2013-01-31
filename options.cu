@@ -9,7 +9,29 @@
 
 void usage()
 {
-    eprintf("grandval\n");
+    eprintf(
+    "Usage: grandval OPTIONS\n"
+    "\n"
+    "where OPTIONS can be any of\n"
+    "   --dt <float>                        Set the time step of the test particles.\n"
+    "   --ic <string>                       Choose the initial particle conditions.\n"
+    "   --show-ics                          Show the available initial conditions.\n"
+    "   --potential <string>                Choose a potential to evolve the particles in.\n"
+    "   --show-potentials                   Show the available potentials.\n"
+    "   --Nsnapshots <float>                Set the number of snapshots.\n"
+    "   --snapshot-name <string>            Set the filename prefix of the snapshot outputs.\n"
+    "   --snapshot-format <string>          Set the snapshot format.\n"
+    "   --show-snapshot-formats             Show the available snapshot formats.\n"
+    "   --Nimages <int>                     Set the number of image outputs.\n"
+    "   --Rimages <float>                   Set the physical radius of the image outputs.\n"
+    "   --image-name <string>               Set the filename prefix of the image outputs.\n"
+    "   --image-format <string>             Set the image format.\n"
+    "   --show-image-formats                Show the available image formats\n"
+    "   --cuda-device <int>                 Set the CUDA compatible device.\n"              
+    "   --show-devices                      Show the available devices.\n"
+    "\n"
+    "Send bug reports to Jonathan Coles <jonathan@physik.uzh.ch>\n"
+    );
 }
 
 void parse_command_line(int argc, char **argv, struct program_options *opt)
@@ -17,23 +39,25 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
     int option_index = 0;
     static struct option long_options[] = 
     {
+        {"help",            0, 0, 0},
         {"seed",            1, 0, 0},
         {"verbosity",       1, 0, 0},
         {"dt",              1, 0, 0},
         {"ic",              1, 0, 0},
-        {"potential",       1, 0, 0},
-        {"Nimages",         1, 0, 0},
-        {"Rimages",         1, 0, 0},
         {"show-ics",        0, 0, 0},
-        {"show-devices",    0, 0, 0},
-        {"cuda-device",     1, 0, 0},
-        {"image-name",     1, 0, 0},
-        {"image-format",     1, 0, 0},
-        {"show-image-formats",     0, 0, 0},
+        {"potential",       1, 0, 0},
+        {"show-potentials",        0, 0, 0},
         {"Nsnapshots",         1, 0, 0},
         {"snapshot-name",         1, 0, 0},
         {"snapshot-format",         1, 0, 0},
         {"show-snapshot-formats",  0, 0, 0},
+        {"Nimages",         1, 0, 0},
+        {"Rimages",         1, 0, 0},
+        {"image-name",     1, 0, 0},
+        {"image-format",     1, 0, 0},
+        {"show-image-formats",     0, 0, 0},
+        {"show-devices",    0, 0, 0},
+        {"cuda-device",     1, 0, 0},
         {0, 0, 0, 0}
     };
 
@@ -46,7 +70,8 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
         switch (c) 
         {
             case 0:
-                     if OPTSTR("dt")              SET_OPTION(opt->dt,                   atof(optarg));
+                     if OPTSTR("help")            { usage(); exit(EXIT_SUCCESS); }
+                else if OPTSTR("dt")              SET_OPTION(opt->dt,                   atof(optarg));
                 else if OPTSTR("Tmax")            SET_OPTION(opt->Tmax,                 atof(optarg));
                 else if OPTSTR("Nimages")         SET_OPTION(opt->Nimages,              atoi(optarg));
                 else if OPTSTR("Rimages")         SET_OPTION(opt->Rimages,              atof(optarg));

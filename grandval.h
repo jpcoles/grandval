@@ -3,6 +3,9 @@
 
 #include <inttypes.h>
 
+#define GRANDVAL_FULL_PROGRAM_NAME "grandval v0.1"
+
+
 #define WITH_INTEGERS 0
 #define WITH_FLOATS 1
 

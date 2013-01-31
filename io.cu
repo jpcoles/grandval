@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include <assert.h>
 #include <png.h>
 #include <stdio.h>
@@ -219,6 +220,7 @@ int check_snapshot_format(char *f)
 int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_sep)
 {
     size_t i;
+    time_t t;
     int ret_code = 1;
 
     FILE *fp = fopen(fname, "wt");
@@ -229,9 +231,20 @@ int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_se
         goto cleanup;
     }
 
+    t = time(NULL);
+
+    fprintf(fp, 
+    "# ASCII snapshot\n"
+    "# " GRANDVAL_FULL_PROGRAM_NAME "\n"
+    "# Generated on %s"
+    "# x y z vx vy vz\n",
+    asctime(localtime(&t)));
+
     for (i=0; i < NP; i++)
     {
-        fprintf(fp, "x\n");
+        fprintf(fp, "%e %e %e %e %e %e\n", 
+            P[i].x[0], P[i].x[1], P[i].x[2],
+            P[i].v[0], P[i].v[1], P[i].v[2]);
     }
 
     fclose(fp);
@@ -259,8 +272,6 @@ int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
 
     if (!strcmp("ascii", io->format))
         return save_snapshot_ascii(fname, P, NP, " ");
-    if (!strcmp("csv", io->format))
-        return save_snapshot_ascii(fname, P, NP, ",");
     else
         assert(0);
 
