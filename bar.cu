@@ -1,3 +1,13 @@
+/* Implements a bar potential of the form
+ *
+ * \phi(r, \theta) = \frac12 \log(1 + r^2(1 + \epsilon \cos^2(\theta - \Omega t)))
+ *
+ * The derivatives are
+ *
+ * \frac{\partial}{\partial r} = \frac{r (\epsilon \cos^2(\Omega t - \theta) + 1)}{\epsilon r^2 (\cos^2(\Omega t - \theta) + 1) + 1}
+ * \frac{\partial}{\partial \theta} = \frac{\epsilon r^2 \sin(\Omega t - \theta) \cos(\Omega t - \theta)}{r^2 (\epsilon \cos^2(\Omega t - \theta) + 1) + 1}
+ *
+ */
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
@@ -89,6 +99,12 @@ __device__ void bar_accel(struct particle *p, tyme_t t, mass_t M, freq_t omega, 
     const dist_t r = sqrt(r2);
     const dist_t theta = atan2(y, x);
 
+    const dist_t dr_dx = x / r;
+    const dist_t dr_dy = y / r;
+
+    const dist_t dtheta_dx = -y / pow(r,2);
+    const dist_t dtheta_dy =  x / pow(r,2);
+
     const real cs = cos(omega*t - theta);
     const real sn = sin(omega*t - theta);
 
@@ -98,14 +114,6 @@ __device__ void bar_accel(struct particle *p, tyme_t t, mass_t M, freq_t omega, 
     const dist_t d_dr     = r * q0 / q1;
     const dist_t d_dtheta = M * r2 * sn * cs / q1;
 
-    const dist_t dr_dx = x / r;
-    const dist_t dr_dy = y / r;
-
-    const dist_t dtheta_dx = -y / pow(r,2);
-    const dist_t dtheta_dy =  x / pow(r,2);
-
-    //out[0] = -d_dr * cos(d_dtheta);
-    //out[1] = -d_dr * sin(d_dtheta);
     out[0] = -0.5 * (d_dr * dr_dx + d_dtheta * dtheta_dx);
     out[1] = -0.5 * (d_dr * dr_dy + d_dtheta * dtheta_dy);
     out[2] = 0;
