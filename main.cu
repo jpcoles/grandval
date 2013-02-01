@@ -3,12 +3,14 @@
 #include <math.h>
 #include <stdlib.h>
 #include "grandval.h"
-#include "nbody.h"
 #include "ic.h"
 #include "io.h"
 #include "options.h"
 #include "devices.h"
 #include "util.h"
+
+#include "nbody.h"
+#include "bar.h"
 
 int main(int argc, char **argv)
 {
@@ -61,6 +63,9 @@ int main(int argc, char **argv)
     int curr_save=0;
 
     nbody_init(&phi);
+    add_potential(&phi);
+
+    bar_init(&phi);
     add_potential(&phi);
 
     parse_command_line(argc, argv, &opts);
@@ -161,16 +166,23 @@ int main(int argc, char **argv)
     if (opts.Nimages_set && opts.Nimages)
     {
         capture(opts.Rimages, P, NP, &image, 1, grey);
-        capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        //capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
         save_image(curr_capture, &image);
         curr_capture++;
     }
 
-    for (curr_step = 0, t = dt;
-         t < Tmax+dt;
-         t += dt, curr_step++)
+
+    curr_step = 0;
+
+    while (1)
     {
+        curr_step++;
+        t = dt*curr_step;
+        if (t > Tmax+dt) break;
+
         if (t > Tmax) t = Tmax;
+
+        eprintf("%f %f\n", dt, t);
 
         if (!phi.step_particles(phi_data, dt)) goto fail;
         if (!phi.advance(phi_data, t)) goto fail;
@@ -180,7 +192,7 @@ int main(int argc, char **argv)
         {
             //write_positions(P, NP, curr_step == 0);
             capture(opts.Rimages, P, NP, &image, 1, grey);
-            capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
+            //capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
             save_image(curr_capture, &image);
             curr_capture++;
             t_next_capture += Tmax / opts.Nimages;
@@ -190,7 +202,11 @@ int main(int argc, char **argv)
         {
             if (!save_snapshot(curr_save, &io, P, NP))
                 goto fail;
+
+            curr_save++;
+            t_next_save += Tmax / opts.Nsnapshots;
         }
+
     }
 
 
@@ -198,7 +214,7 @@ int main(int argc, char **argv)
     if (opts.Nimages_set && opts.Nimages > 0 && t > t_next_capture)
     {
         capture(opts.Rimages, P, NP, &image, 1, grey);
-        capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
+        //capture_massive(opts.Rimages, nbody->phi.P, nbody->phi.N, &image, 0, red);
         save_image(curr_capture, &image);
     }
 

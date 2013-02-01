@@ -223,7 +223,13 @@ int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_se
     time_t t;
     int ret_code = 1;
 
-    FILE *fp = fopen(fname, "wt");
+    FILE *fp;
+    
+    if (!strcmp(fname, "-"))
+        fp = stdout;
+    else
+        fp = fopen(fname, "wt");
+
     if (!fp)
     {
         errmsg("Can't open file for writing (%s)", fname);
@@ -247,7 +253,8 @@ int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_se
             P[i].v[0], P[i].v[1], P[i].v[2]);
     }
 
-    fclose(fp);
+    if (fp != stdout)
+        fclose(fp);
 
 cleanup:
 
@@ -257,18 +264,24 @@ cleanup:
 int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
 {
     int ret_code = 1;
-    char *fname = make_message("%s%05i.%s", io->name, step, io->format);
-
-    FILE *fp = fopen(fname, "r+");
-    if (fp != NULL && io->overwrite)
+    char *fname;
+    
+    if (!strcmp(io->name, "-"))
+        fname = make_message("-");
+    else
     {
-        errmsg("File already exists and overwriting is was not allowed (%s).", fname);
-        ret_code = 0;
-        goto cleanup;
-    }
-    fclose(fp);
+        fname = make_message("%s%05i.%s", io->name, step, io->format);
 
-    eprintf("Writing to %s\n", fname);
+        FILE *fp = fopen(fname, "r+");
+        if (fp != NULL && io->overwrite)
+        {
+            errmsg("File already exists and overwriting is was not allowed (%s).", fname);
+            ret_code = 0;
+            goto cleanup;
+        }
+        fclose(fp);
+        eprintf("Writing to %s\n", fname);
+    }
 
     if (!strcmp("ascii", io->format))
         return save_snapshot_ascii(fname, P, NP, " ");

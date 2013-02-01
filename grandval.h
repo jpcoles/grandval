@@ -41,6 +41,7 @@ typedef real vel_t;
 typedef real acc_t;
 typedef real tyme_t;
 typedef real force_t;
+typedef real freq_t;
 #define TIMET  F_TIMET 
 #define DISTT  F_DISTT 
 #define POST   F_POST  
