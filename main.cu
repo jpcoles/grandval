@@ -182,8 +182,6 @@ int main(int argc, char **argv)
 
         if (t > Tmax) t = Tmax;
 
-        eprintf("%f %f\n", dt, t);
-
         if (!phi.step_particles(phi_data, dt)) goto fail;
         if (!phi.advance(phi_data, t)) goto fail;
         if (!phi.get_particles(phi_data, &P, &NP)) goto fail;

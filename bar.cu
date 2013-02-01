@@ -89,8 +89,6 @@ int bar_get_particles(void *phi_data, struct particle **P, size_t *N)
 
 __device__ void bar_accel(struct particle *p, tyme_t t, mass_t M, freq_t omega, acc_t *out)
 {
-    size_t i;
-
     const dist_t x = p->x[0];
     const dist_t y = p->x[1];
     const dist_t z = p->x[2];
