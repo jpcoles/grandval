@@ -2,8 +2,8 @@
 #include "grandval.h"
 #include "potential.h"
 
-static int Npotentials;
-static struct potential *potentials; 
+static int Npotentials = 0;
+static struct potential *potentials = NULL; 
 
 void show_potentials()
 {
@@ -30,7 +30,7 @@ int find_potential(char *name, struct potential *p)
 void add_potential(struct potential *p)
 {
     Npotentials++;
-    potentials = (struct potential *)realloc(potentials, Npotentials);
+    potentials = (struct potential *)realloc(potentials, Npotentials * sizeof(*potentials));
     potentials[Npotentials-1] = *p;
 }
 
