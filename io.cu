@@ -283,7 +283,8 @@ int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
             ret_code = 0;
             goto cleanup;
         }
-        fclose(fp);
+        if (fp != NULL)
+            fclose(fp);
         eprintf("Writing to %s\n", fname);
     }
 
