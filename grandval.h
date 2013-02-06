@@ -98,7 +98,9 @@ struct program_options
 
     char *image_name;       int image_name_set;
     char *image_format;     int image_format_set;
-};
 
+    int overwrite;          int overwrite_set;
+    long random_seed;       int random_seed_set;
+};
 
 #endif

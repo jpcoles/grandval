@@ -13,6 +13,7 @@ void usage()
     "Usage: grandval OPTIONS\n"
     "\n"
     "where OPTIONS can be any of\n"
+    "   --Tmax <float>                      Set total simulation time.\n"
     "   --dt <float>                        Set the time step of the test particles.\n"
     "   --ic <string>                       Choose the initial particle conditions.\n"
     "   --show-ics                          Show the available initial conditions.\n"
@@ -22,6 +23,7 @@ void usage()
     "   --snapshot-name <string>            Set the filename prefix of the snapshot outputs.\n"
     "   --snapshot-format <string>          Set the snapshot format.\n"
     "   --show-snapshot-formats             Show the available snapshot formats.\n"
+    "   --overwrite                         Overwrite any existing output files.\n"
     "   --Nimages <int>                     Set the number of image outputs.\n"
     "   --Rimages <float>                   Set the physical radius of the image outputs.\n"
     "   --image-name <string>               Set the filename prefix of the image outputs.\n"
@@ -29,6 +31,7 @@ void usage()
     "   --show-image-formats                Show the available image formats\n"
     "   --cuda-device <int>                 Set the CUDA compatible device.\n"              
     "   --show-devices                      Show the available devices.\n"
+    "   --seed <int>                        Set the random number generator seed.\n"
     "\n"
     "Send bug reports to Jonathan Coles <jonathan@physik.uzh.ch>\n"
     );
@@ -42,6 +45,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
         {"help",            0, 0, 0},
         {"seed",            1, 0, 0},
         {"verbosity",       1, 0, 0},
+        {"Tmax",            1, 0, 0},
         {"dt",              1, 0, 0},
         {"ic",              1, 0, 0},
         {"show-ics",        0, 0, 0},
@@ -58,6 +62,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
         {"show-image-formats",     0, 0, 0},
         {"show-devices",    0, 0, 0},
         {"cuda-device",     1, 0, 0},
+        {"overwrite",     0, 0, 0},
         {0, 0, 0, 0}
     };
 
@@ -71,6 +76,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
         {
             case 0:
                      if OPTSTR("help")            { usage(); exit(EXIT_SUCCESS); }
+                else if OPTSTR("seed")            SET_OPTION(opt->random_seed,          atol(optarg));
                 else if OPTSTR("dt")              SET_OPTION(opt->dt,                   atof(optarg));
                 else if OPTSTR("Tmax")            SET_OPTION(opt->Tmax,                 atof(optarg));
                 else if OPTSTR("Nimages")         SET_OPTION(opt->Nimages,              atoi(optarg));
@@ -82,6 +88,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
                 else if OPTSTR("Nsnapshots")      SET_OPTION(opt->Nsnapshots,           atoi(optarg));
                 else if OPTSTR("snapshot-name")   SET_OPTION(opt->snapshot_name,             optarg);
                 else if OPTSTR("snapshot-format") SET_OPTION(opt->snapshot_format,           optarg);
+                else if OPTSTR("overwrite")       SET_OPTION(opt->overwrite,                      1);
                 else if OPTSTR("cuda-device")     SET_OPTION(opt->cuda_device,          atoi(optarg));
 
                 else if OPTSTR("show-potentials") { show_potentials();         exit(EXIT_SUCCESS); }
@@ -108,19 +115,21 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
 void show_options(struct program_options *opts, struct program_options *default_opts)
 {
 #define PRINT_OPT(str, o) do { if (opts -> o ## _set) eprintf(str "\n", opts -> o); else eprintf(str " (default)\n", default_opts -> o); } while (0)
-    PRINT_OPT("Nparticles               %ld", Nparticles);
+    PRINT_OPT("Nparticles                %ld", Nparticles);
     PRINT_OPT("dt                        %f", dt);
     PRINT_OPT("Tmax                      %f", Tmax);
     PRINT_OPT("Nimages                   %i", Nimages);
     PRINT_OPT("Rimages                   %f", Rimages);
-    PRINT_OPT("Image name                %f", image_name);
-    PRINT_OPT("Image format              %f", image_format);
+    PRINT_OPT("Image name                %s", image_name);
+    PRINT_OPT("Image format              %s", image_format);
     PRINT_OPT("R                         %f", R);
     PRINT_OPT("IC                        %s", ic_name);
     PRINT_OPT("Potential                 %s", potential_name);
     PRINT_OPT("Cuda Device               %i", cuda_device);
-    PRINT_OPT("Nsnapshots                %i", Nsnapshots);
+    PRINT_OPT("Nsnapshots                %ld", Nsnapshots);
     PRINT_OPT("Snapshot name             %s", snapshot_name);
     PRINT_OPT("Snapshot format           %s", snapshot_format);
+    PRINT_OPT("Overwrite                 %i", overwrite);
+    PRINT_OPT("Random seed               %ld", random_seed);
 }
 

@@ -140,11 +140,12 @@ __global__ void nbody_cuda_step_all(struct particle *P, size_t NP, struct massiv
 
     if (pi >= NP) return;
 
-    struct particle *p = P + pi;
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
-    nbody_accel(p, Pm, NPm, eps2, a);
-    for (i=0; i < 3; i++) p->v[i] +=    a[i] * dt;
-    for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
+    struct particle p = P[pi];
+    for (i=0; i < 3; i++) p.x[i] += p.v[i] * dt/2;
+    nbody_accel(&p, Pm, NPm, eps2, a);
+    for (i=0; i < 3; i++) p.v[i] +=   a[i] * dt;
+    for (i=0; i < 3; i++) p.x[i] += p.v[i] * dt/2;
+    P[pi] = p;
 }
 
 int nbody_step_particles(void *phi_data, tyme_t dt)
@@ -285,7 +286,7 @@ void *nbody_create_potential(size_t N)
     assert(N == 2);
 
     nbody->phi.N = N;
-    nbody->phi.eps2 = 0.5;
+    nbody->phi.eps2 = 3.5;
     nbody->phi.dt = 0.1;
     nbody->phi.t = 0;
 

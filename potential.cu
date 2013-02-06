@@ -9,9 +9,7 @@ void show_potentials()
 {
     int i;
     for (i=0; i < Npotentials; i++)
-    {
         eprintf("%15s - %s\n", potentials[i].name, potentials[i].desc);
-    }
 }
 
 int find_potential(char *name, struct potential *p)
@@ -19,7 +17,6 @@ int find_potential(char *name, struct potential *p)
     int i;
     for (i=0; i < Npotentials; i++)
     {
-        eprintf("%s %s\n", name, potentials[i].name);
         if (!strcmp(name, potentials[i].name))
         {
             *p = potentials[i];

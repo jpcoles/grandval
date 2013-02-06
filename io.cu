@@ -35,7 +35,7 @@ static struct
 void capture(dist_t radius, struct particle *P, size_t NP, struct image *image, int clear, int rgb[3])
 {
     int32_t r, c;
-    double scale = 0;
+    double scale = 100;
 
     if (clear) 
     {
@@ -54,8 +54,8 @@ void capture(dist_t radius, struct particle *P, size_t NP, struct image *image, 
         if (!(0 <= r && r < image->nc)) continue;
         if (!(0 <= c && c < image->nr)) continue;
         image->hist[r*image->nc + c] += 1;
-        if (image->hist[r*image->nc + c] > scale)
-            scale = image->hist[r*image->nc + c];
+        //if (image->hist[r*image->nc + c] > scale)
+            //scale = image->hist[r*image->nc + c];
     }
 
     i = 0;
@@ -239,16 +239,20 @@ int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_se
 
     t = time(NULL);
 
-    fprintf(fp, 
-    "# ASCII snapshot\n"
-    "# " GRANDVAL_FULL_PROGRAM_NAME "\n"
-    "# Generated on %s"
-    "# x y z vx vy vz\n",
-    asctime(localtime(&t)));
+    if (fp != stdout)
+    {
+        fprintf(fp, 
+        "# ASCII snapshot\n"
+        "# " GRANDVAL_FULL_PROGRAM_NAME "\n"
+        "# Generated on %s"
+        "# x y z vx vy vz\n",
+        asctime(localtime(&t)));
+    }
 
     for (i=0; i < NP; i++)
     {
-        fprintf(fp, "%e %e %e %e %e %e\n", 
+#define F "%24.15e"
+        fprintf(fp, F" "F" "F" "F" "F" "F"\n", 
             P[i].x[0], P[i].x[1], P[i].x[2],
             P[i].v[0], P[i].v[1], P[i].v[2]);
     }
@@ -273,7 +277,7 @@ int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
         fname = make_message("%s%05i.%s", io->name, step, io->format);
 
         FILE *fp = fopen(fname, "r+");
-        if (fp != NULL && io->overwrite)
+        if (fp != NULL && !io->overwrite)
         {
             errmsg("File already exists and overwriting is was not allowed (%s).", fname);
             ret_code = 0;

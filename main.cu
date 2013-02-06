@@ -2,15 +2,50 @@
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
 #include "grandval.h"
 #include "ic.h"
 #include "io.h"
 #include "options.h"
 #include "devices.h"
 #include "util.h"
+#include "rand.h"
 
 #include "nbody.h"
 #include "bar.h"
+#include "plummer.h"
+
+size_t phase_space_number_density(struct particle *P, size_t N, dist_t R)
+{
+    pos_t x[6];
+    x[0] = P[0].x[0];
+    x[1] = P[0].x[1];
+    x[2] = P[0].x[2];
+    x[3] = P[0].v[0];
+    x[4] = P[0].v[1];
+    x[5] = P[0].v[2];
+    const dist_t R2 = R*R;
+
+    size_t i,j;
+    size_t n=0;
+    for (i=0; i < N; i++)
+    {
+        dist_t d[6];
+        for (j=0; j < 3; j++)
+        {
+            d[j+0] = P[i].x[j] - x[j+0];
+            d[j+3] = P[i].v[j] - x[j+3];
+        }
+        dist_t r2 = 0;
+        for (j=0; j < 6; j++)
+            r2 += d[j] * d[j];
+
+        n += r2 <= R2;
+        //if (r2 > R2) eprintf("%24.15f %24.15f\n", r2, R2);
+    }
+
+    return n;
+}
 
 int main(int argc, char **argv)
 {
@@ -19,6 +54,8 @@ int main(int argc, char **argv)
     tyme_t t = 0;
     tyme_t dt;
     dist_t R;
+
+    dist_t psR = 1e-6;
 
     int ret_code = EXIT_SUCCESS;
 
@@ -40,6 +77,8 @@ int main(int argc, char **argv)
     SET_OPTION(default_opts.snapshot_format,        "ascii");
     SET_OPTION(default_opts.image_name,             "gv-");
     SET_OPTION(default_opts.image_format,           "png");
+    SET_OPTION(default_opts.overwrite,              0);
+    SET_OPTION(default_opts.random_seed,            time(NULL));
 
     struct program_options opts;
     memset(&opts, 0, sizeof(opts));
@@ -62,11 +101,9 @@ int main(int argc, char **argv)
     double t_next_save=0;
     int curr_save=0;
 
-    nbody_init(&phi);
-    add_potential(&phi);
-
-    bar_init(&phi);
-    add_potential(&phi);
+    nbody_init(&phi);       add_potential(&phi);
+    bar_init(&phi);         add_potential(&phi);
+    plummer_init(&phi);     add_potential(&phi);
 
     parse_command_line(argc, argv, &opts);
 
@@ -75,6 +112,10 @@ int main(int argc, char **argv)
     ASSIGN_OPTION(dt, dt, opts, default_opts);
     ASSIGN_OPTION(Tmax, Tmax, opts, default_opts);
     ASSIGN_OPTION(R, R, opts, default_opts);
+
+    ASSIGN_OPTION(opts.random_seed, random_seed, opts, default_opts);
+
+    rand_seed(opts.random_seed);
 
     if (opts.Nimages_set)
     {
@@ -106,6 +147,7 @@ int main(int argc, char **argv)
 
         ASSIGN_OPTION(io.name,   snapshot_name,   opts, default_opts);
         ASSIGN_OPTION(io.format, snapshot_format, opts, default_opts);
+        ASSIGN_OPTION(io.overwrite, overwrite, opts, default_opts);
         if (!check_snapshot_format(io.format))
         {
             eprintf("Snapshot format not supported (%s).\n", io.format);
@@ -152,12 +194,14 @@ int main(int argc, char **argv)
 
     ic_f(P, NP, R);
 
+    //printf("PSD %ld\n", phase_space_number_density(P, NP, psR));
 
     void *phi_data = phi.create(2);
     nbody = (struct nbody *)phi_data;
 
     phi.set_particles(phi_data, P, NP);
 
+    //printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
 
     P = 0;
     NP = 0;
@@ -171,6 +215,12 @@ int main(int argc, char **argv)
         curr_capture++;
     }
 
+    if (opts.Nsnapshots_set && opts.Nsnapshots > 0)
+    {
+        if (!save_snapshot(curr_save, &io, P, NP))
+            goto fail;
+        curr_save++;
+    }
 
     curr_step = 0;
 
@@ -181,6 +231,8 @@ int main(int argc, char **argv)
         if (t > Tmax+dt) break;
 
         if (t > Tmax) t = Tmax;
+
+        eprintf("Simulation time %f\n", t);
 
         if (!phi.step_particles(phi_data, dt)) goto fail;
         if (!phi.advance(phi_data, t)) goto fail;
@@ -205,6 +257,8 @@ int main(int argc, char **argv)
             t_next_save += Tmax / opts.Nsnapshots;
         }
 
+        //printf("PSD %ld\n", phase_space_number_density(P, NP, psR));
+        //printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
     }
 
 

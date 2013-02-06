@@ -7,6 +7,10 @@
  * \frac{\partial}{\partial r} = \frac{r (\epsilon \cos^2(\Omega t - \theta) + 1)}{\epsilon r^2 (\cos^2(\Omega t - \theta) + 1) + 1}
  * \frac{\partial}{\partial \theta} = \frac{\epsilon r^2 \sin(\Omega t - \theta) \cos(\Omega t - \theta)}{r^2 (\epsilon \cos^2(\Omega t - \theta) + 1) + 1}
  *
+ * To find change in x (similar for change in y): 
+ * \frac{\partial \phi}{\partial r} \frac{\d r}{\d x} + \frac{\partial \phi}{\partial \theta} \frac{\d \theta}{\d x} = \frac{\d \phi}{\d x}
+ *
+ * 
  */
 #include <assert.h>
 #include <math.h>
@@ -93,7 +97,7 @@ __device__ void bar_accel(struct particle *p, tyme_t t, mass_t M, freq_t omega, 
     const dist_t y = p->x[1];
     const dist_t z = p->x[2];
 
-    const dist_t r2 = x*x + y*y + z*z;
+    const dist_t r2 = x*x + y*y;
     const dist_t r = sqrt(r2);
     const dist_t theta = atan2(y, x);
 
@@ -112,8 +116,8 @@ __device__ void bar_accel(struct particle *p, tyme_t t, mass_t M, freq_t omega, 
     const dist_t d_dr     = r * q0 / q1;
     const dist_t d_dtheta = M * r2 * sn * cs / q1;
 
-    out[0] = -0.5 * (d_dr * dr_dx + d_dtheta * dtheta_dx);
-    out[1] = -0.5 * (d_dr * dr_dy + d_dtheta * dtheta_dy);
+    out[0] = -(d_dr * dr_dx + d_dtheta * dtheta_dx);
+    out[1] = -(d_dr * dr_dy + d_dtheta * dtheta_dy);
     out[2] = 0;
 }
 
