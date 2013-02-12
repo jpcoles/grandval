@@ -14,6 +14,7 @@
 #include "nbody.h"
 #include "bar.h"
 #include "plummer.h"
+#include "hernquist.h"
 
 size_t phase_space_number_density(struct particle *P, size_t N, dist_t R)
 {
@@ -104,6 +105,7 @@ int main(int argc, char **argv)
     nbody_init(&phi);       add_potential(&phi);
     bar_init(&phi);         add_potential(&phi);
     plummer_init(&phi);     add_potential(&phi);
+    hernquist_init(&phi);   add_potential(&phi);
 
     parse_command_line(argc, argv, &opts);
 
@@ -201,7 +203,7 @@ int main(int argc, char **argv)
 
     phi.set_particles(phi_data, P, NP);
 
-    //printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
+    printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
 
     P = 0;
     NP = 0;
@@ -258,7 +260,7 @@ int main(int argc, char **argv)
         }
 
         //printf("PSD %ld\n", phase_space_number_density(P, NP, psR));
-        //printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
+        printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
     }
 
 
