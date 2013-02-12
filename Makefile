@@ -3,8 +3,8 @@ CC=nvcc
 CUDA_VERSION=12
 LDFLAGS_PNG=$(shell libpng-config --ldflags)
 CFLAGS_PNG=$(shell libpng-config --cflags)
-CFLAGS=-g -G -Xcompiler "-Wall -O3 $(CFLAGS_PNG)" --generate-code arch=compute_$(CUDA_VERSION),code=sm_$(CUDA_VERSION) --ptxas-options="-v"
-LDFLAGS=-Xlinker "-lm $(LDFLAGS_PNG)"
+CFLAGS=-m64 -g -G -Xcompiler "-Wall -O3 $(CFLAGS_PNG)" --generate-code arch=compute_$(CUDA_VERSION),code=sm_$(CUDA_VERSION) --ptxas-options="-v"
+LDFLAGS=-m64 -Xlinker "-lm $(LDFLAGS_PNG)"
 SRC=$(wildcard *.cu)
 OBJS=$(patsubst %.cu,%.o, $(SRC))
 
