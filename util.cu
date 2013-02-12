@@ -83,14 +83,17 @@ void errmsg(const char *fmt, ...)
 void print_errmsg()
 {
     int i;
-    eprintf("The following failures occured:\n");
-    for (i=0; i < stack_size; i++)
+    if (stack_size)
     {
-        eprintf("    %s\n", error_msg_stack[i]);
-        free(error_msg_stack[i]);
+        //eprintf("The following errors occured:\n");
+        for (i=0; i < stack_size; i++)
+        {
+            eprintf("ERROR:    %s\n", error_msg_stack[i]);
+            free(error_msg_stack[i]);
+        }
+        free(error_msg_stack);
+        error_msg_stack = NULL;
+        stack_size = 0;
     }
-    free(error_msg_stack);
-    error_msg_stack = NULL;
-    stack_size = 0;
 }
 

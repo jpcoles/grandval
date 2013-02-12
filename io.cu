@@ -279,7 +279,7 @@ int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
         FILE *fp = fopen(fname, "r+");
         if (fp != NULL && !io->overwrite)
         {
-            errmsg("File already exists and overwriting is was not allowed (%s).", fname);
+            errmsg("File already exists and overwriting was not allowed (%s).", fname);
             ret_code = 0;
             goto cleanup;
         }
