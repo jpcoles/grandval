@@ -101,6 +101,8 @@ struct program_options
 
     int overwrite;          int overwrite_set;
     long random_seed;       int random_seed_set;
+
+    char *energy_fname;     int energy_fname_set;
 };
 
 #endif

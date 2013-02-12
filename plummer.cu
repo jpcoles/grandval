@@ -16,7 +16,7 @@ static const size_t cuda_threads_per_block = 512;
 void plummer_init(struct potential *phi)
 {
     phi->name = "plummer";
-    phi->desc = "plummer potential.";
+    phi->desc = "Plummer potential.";
 
     phi->create         = plummer_create_potential;
     phi->set_particles  = plummer_set_particles;
@@ -29,6 +29,8 @@ void plummer_init(struct potential *phi)
 
 void plummer_free(void *phi_data)
 {
+    if (phi_data == NULL) return;
+
     struct plummer *plummer = (struct plummer *)phi_data;
 
     if (plummer->P.P != NULL)
@@ -63,7 +65,7 @@ int plummer_get_particles(void *phi_data, struct particle **P, size_t *N)
         cudaError_t err = cudaGetLastError();
         if (err)
         {
-            errmsg("CUDA synchronize failed %i: %s\n", err, cudaGetErrorString(err));
+            errmsg("CUDA synchronize failed %i: %s", err, cudaGetErrorString(err));
             return 0;
         }
         //fprintf(stderr, "Updating host particles.\n");
@@ -71,7 +73,7 @@ int plummer_get_particles(void *phi_data, struct particle **P, size_t *N)
         err = cudaGetLastError();
         if (err)
         {
-            errmsg("CUDA memory copy from device failed %i: %s\n", err, cudaGetErrorString(err));
+            errmsg("CUDA memory copy from device failed %i: %s", err, cudaGetErrorString(err));
             return 0;
         }
     }
@@ -146,7 +148,7 @@ int plummer_step_particles(void *phi_data, tyme_t dt)
     err = cudaGetLastError();
     if (err)
     {
-        errmsg("CUDA kernel call had error status %i: %s\n", err, cudaGetErrorString(err));
+        errmsg("CUDA kernel call had error status %i: %s", err, cudaGetErrorString(err));
         return 0;
     }
 
@@ -180,8 +182,6 @@ real plummer_energy(void *phi_data, struct particle *P, size_t N)
     const dist_t eps2 = plummer->phi.eps2;
     const mass_t M = plummer->phi.M;
 
-    const tyme_t dt = 0.1;
-
     for (i=0; i < N; i++)
     {
         vel_t v2 = 0;
@@ -192,7 +192,6 @@ real plummer_energy(void *phi_data, struct particle *P, size_t N)
 
         dist_t r2=0;
         for (j=0; j < 3; j++)
-            //r2 += pow(P[i].x[j] + P[i].v[j] * dt/2, 2);
             r2 += pow(P[i].x[j], 2);
 
         U -= 1 / sqrt(r2 + eps2);

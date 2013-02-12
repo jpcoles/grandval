@@ -29,6 +29,8 @@ void hernquist_init(struct potential *phi)
 
 void hernquist_free(void *phi_data)
 {
+    if (phi_data == NULL) return;
+
     struct hernquist *hernquist = (struct hernquist *)phi_data;
 
     if (hernquist->P.P != NULL)

@@ -60,29 +60,14 @@ int main(int argc, char **argv)
 
     int ret_code = EXIT_SUCCESS;
 
+    FILE *energy_fp = NULL;
+    struct particle *P = NULL;
+    void *phi_data = NULL;
+
     struct potential phi;
-
     struct program_options default_opts;
-    memset(&default_opts, 0, sizeof(default_opts));
-
-    SET_OPTION(default_opts.Nparticles,             1000);
-    SET_OPTION(default_opts.dt,                     0.1);
-    SET_OPTION(default_opts.Tmax,                   50);
-    SET_OPTION(default_opts.R,                      10);
-    SET_OPTION(default_opts.Nimages,                500);
-    SET_OPTION(default_opts.Rimages,                10);
-    SET_OPTION(default_opts.ic_name,                "line");
-    SET_OPTION(default_opts.potential_name,         "nbody");
-    SET_OPTION(default_opts.Nsnapshots,             0);
-    SET_OPTION(default_opts.snapshot_name,          "gv-");
-    SET_OPTION(default_opts.snapshot_format,        "ascii");
-    SET_OPTION(default_opts.image_name,             "gv-");
-    SET_OPTION(default_opts.image_format,           "png");
-    SET_OPTION(default_opts.overwrite,              0);
-    SET_OPTION(default_opts.random_seed,            time(NULL));
-
     struct program_options opts;
-    memset(&opts, 0, sizeof(opts));
+
 
     int curr_step;
 
@@ -101,6 +86,28 @@ int main(int argc, char **argv)
 
     double t_next_save=0;
     int curr_save=0;
+
+    memset(&phi, 0, sizeof(phi));
+    memset(&default_opts, 0, sizeof(default_opts));
+    memset(&opts, 0, sizeof(opts));
+
+    atexit(print_errmsg);
+
+    SET_OPTION(default_opts.Nparticles,             1000);
+    SET_OPTION(default_opts.dt,                     0.1);
+    SET_OPTION(default_opts.Tmax,                   50);
+    SET_OPTION(default_opts.R,                      10);
+    SET_OPTION(default_opts.Nimages,                500);
+    SET_OPTION(default_opts.Rimages,                10);
+    SET_OPTION(default_opts.ic_name,                "line");
+    SET_OPTION(default_opts.potential_name,         "nbody");
+    SET_OPTION(default_opts.Nsnapshots,             0);
+    SET_OPTION(default_opts.snapshot_name,          "gv-");
+    SET_OPTION(default_opts.snapshot_format,        "ascii");
+    SET_OPTION(default_opts.image_name,             "gv-");
+    SET_OPTION(default_opts.image_format,           "png");
+    SET_OPTION(default_opts.overwrite,              0);
+    SET_OPTION(default_opts.random_seed,            time(NULL));
 
     nbody_init(&phi);       add_potential(&phi);
     bar_init(&phi);         add_potential(&phi);
@@ -121,13 +128,19 @@ int main(int argc, char **argv)
 
     if (opts.Nimages_set)
     {
+        if (!opts.Rimages_set)
+        {
+            errmsg("Option --Rimages must be set to save images.");
+            goto fail;
+        }
+
         assert(opts.Rimages_set);
         ASSIGN_OPTION(image.name,   image_name,   opts, default_opts);
         ASSIGN_OPTION(image.format, image_format, opts, default_opts);
         if (!check_image_format(image.format))
         {
-            eprintf("Image format not supported (%s).\n", image.format);
-            exit(EXIT_FAILURE);
+            errmsg("Image format not supported (%s).", image.format);
+            goto fail;
         }
 
         image.nc = 512;
@@ -143,8 +156,8 @@ int main(int argc, char **argv)
     {
         if (opts.Nsnapshots < 0)
         {
-            eprintf("Number of snapshots requested must not be negative (%ld)\n", opts.Nsnapshots);
-            exit(EXIT_FAILURE);
+            errmsg("Number of snapshots requested must not be negative (%ld).", opts.Nsnapshots);
+            goto fail;
         }
 
         ASSIGN_OPTION(io.name,   snapshot_name,   opts, default_opts);
@@ -152,8 +165,8 @@ int main(int argc, char **argv)
         ASSIGN_OPTION(io.overwrite, overwrite, opts, default_opts);
         if (!check_snapshot_format(io.format))
         {
-            eprintf("Snapshot format not supported (%s).\n", io.format);
-            exit(EXIT_FAILURE);
+            errmsg("Snapshot format not supported (%s).", io.format);
+            goto fail;
         }
 
         t_next_save = Tmax / opts.Nsnapshots;
@@ -164,8 +177,8 @@ int main(int argc, char **argv)
     {
         if (!find_ic(opts.ic_name, &ic_f))
         {
-            eprintf("Unknown initial condition (%s)\n", opts.ic_name);
-            exit(EXIT_FAILURE);
+            errmsg("Unknown initial condition (%s).", opts.ic_name);
+            goto fail;
         }
     }
     else
@@ -177,8 +190,8 @@ int main(int argc, char **argv)
     {
         if (!find_potential(opts.potential_name, &phi))
         {
-            eprintf("Unknown potential (%s)\n", opts.potential_name);
-            exit(EXIT_FAILURE);
+            errmsg("Unknown potential (%s).", opts.potential_name);
+            goto fail;
         }
     }
     else
@@ -186,19 +199,40 @@ int main(int argc, char **argv)
         assert(find_potential(default_opts.potential_name, &phi));
     }
 
+    if (opts.energy_fname_set)
+    {
+        if (!opts.overwrite)
+        {
+            energy_fp = fopen(opts.energy_fname, "r");
+            if (energy_fp)
+            {
+                errmsg("File already exists and overwriting was not allowed (%s).", opts.energy_fname);
+                goto fail;
+            }
+            fclose(energy_fp);
+        }
+
+        energy_fp = fopen(opts.energy_fname, "wt");
+        if (!energy_fp)
+        {
+            errmsg("Unable to open energy file (%s).", opts.energy_fname);
+            goto fail;
+        }
+    }
+
     show_options(&opts, &default_opts);
 
     if (!select_cuda_device(opts.cuda_device))
-        exit(EXIT_FAILURE);
+        goto fail;
 
-    struct particle *P = (struct particle *)malloc(NP * sizeof(*P));
+    P = (struct particle *)malloc(NP * sizeof(*P));
     assert(P != NULL);
 
     ic_f(P, NP, R);
 
     //printf("PSD %ld\n", phase_space_number_density(P, NP, psR));
 
-    void *phi_data = phi.create(2);
+    phi_data = phi.create(2);
     nbody = (struct nbody *)phi_data;
 
     phi.set_particles(phi_data, P, NP);
@@ -260,7 +294,9 @@ int main(int argc, char **argv)
         }
 
         //printf("PSD %ld\n", phase_space_number_density(P, NP, psR));
-        printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
+
+        if (energy_fp && phi.energy != NULL)
+            fprintf(energy_fp, "%24.15e\n", phi.energy(phi_data, P, NP));
     }
 
 
@@ -281,12 +317,12 @@ int main(int argc, char **argv)
     goto cleanup;
 
 fail:
-    print_errmsg();
+    //print_errmsg();
     ret_code = EXIT_FAILURE;
 
 cleanup:
 
-    phi.free(phi_data);
+    if (phi.free) phi.free(phi_data);
 
     return ret_code;
 }

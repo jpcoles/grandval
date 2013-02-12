@@ -32,6 +32,7 @@ void usage()
     "   --cuda-device <int>                 Set the CUDA compatible device.\n"              
     "   --show-devices                      Show the available devices.\n"
     "   --seed <int>                        Set the random number generator seed.\n"
+    "   --save-energy <string>              Save the total energy at each time step to the specified file.\n"
     "\n"
     "Send bug reports to Jonathan Coles <jonathan@physik.uzh.ch>\n"
     );
@@ -63,6 +64,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
         {"show-devices",    0, 0, 0},
         {"cuda-device",     1, 0, 0},
         {"overwrite",     0, 0, 0},
+        {"save-energy",     1, 0, 0},
         {0, 0, 0, 0}
     };
 
@@ -90,6 +92,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
                 else if OPTSTR("snapshot-format") SET_OPTION(opt->snapshot_format,           optarg);
                 else if OPTSTR("overwrite")       SET_OPTION(opt->overwrite,                      1);
                 else if OPTSTR("cuda-device")     SET_OPTION(opt->cuda_device,          atoi(optarg));
+                else if OPTSTR("save-energy")     SET_OPTION(opt->energy_fname,              optarg);
 
                 else if OPTSTR("show-potentials") { show_potentials();         exit(EXIT_SUCCESS); }
                 else if OPTSTR("show-ics")        { show_initial_conditions(); exit(EXIT_SUCCESS); }
@@ -131,5 +134,6 @@ void show_options(struct program_options *opts, struct program_options *default_
     PRINT_OPT("Snapshot format           %s", snapshot_format);
     PRINT_OPT("Overwrite                 %i", overwrite);
     PRINT_OPT("Random seed               %ld", random_seed);
+    PRINT_OPT("Energy filename           %s", energy_fname);
 }
 

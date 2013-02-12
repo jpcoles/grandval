@@ -24,6 +24,8 @@ void nbody_init(struct potential *phi)
 
 void nbody_free(void *phi_data)
 {
+    if (phi_data == NULL) return;
+
     struct nbody *nbody = (struct nbody *)phi_data;
 
     if (nbody->P.P != NULL)
