@@ -192,8 +192,8 @@ real plummer_energy(void *phi_data, struct particle *P, size_t N)
 
         dist_t r2=0;
         for (j=0; j < 3; j++)
-            r2 += pow(P[i].x[j] + P[i].v[j] * dt/2, 2);
-            //r2 += pow(P[i].x[j], 2);
+            //r2 += pow(P[i].x[j] + P[i].v[j] * dt/2, 2);
+            r2 += pow(P[i].x[j], 2);
 
         U -= 1 / sqrt(r2 + eps2);
     }
