@@ -18,6 +18,7 @@ void ic_random(struct particle *p, size_t N, pos_t R);
 void ic_line(struct particle *p, size_t N, pos_t R);
 void ic_circular_plummer(struct particle *p, size_t N, pos_t R);
 void ic_circular_hernquist(struct particle *p, size_t N, pos_t R);
+void ic_circular_jaffe(struct particle *p, size_t N, pos_t R);
 void ic_droplet(struct particle *p, size_t N, pos_t R);
 void ic_psdroplet(struct particle *p, size_t N, pos_t R);
 void ic_pscube(struct particle *p, size_t N, pos_t R);

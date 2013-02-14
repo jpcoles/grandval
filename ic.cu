@@ -10,6 +10,7 @@ struct iclist ics[] =
   {ic_line,                "line",  ""},
   {ic_circular_plummer,    "circular_plummer",  ""},
   {ic_circular_hernquist,  "circular_hernquist",""},  
+  {ic_circular_jaffe,      "circular_jaffe",  ""},
   {ic_droplet,             "droplet",  ""},
   {ic_psdroplet,           "psdroplet",  ""},
   {ic_disk,                "disk",  ""},
@@ -84,7 +85,7 @@ void ic_circular_plummer(struct particle *p, size_t N, pos_t R)
 void ic_circular_hernquist (struct particle *p, size_t N, pos_t R)
  { 
    mass_t M = 5;
-   dist_t eps = 0.05;
+   dist_t eps = 0.22;
    dist_t Rmin = 2*eps;   
    size_t i;
    for (i=0; i < N; i++)
@@ -99,6 +100,30 @@ void ic_circular_hernquist (struct particle *p, size_t N, pos_t R)
        p[i].v[2] = 0;
     }  
  }
+
+//==============================================================================
+//                                 ic_circular_jaffe
+//==============================================================================
+void ic_circular_jaffe(struct particle *p, size_t N, pos_t R)
+{
+    mass_t M = 5;
+    dist_t eps = 0.22;
+    dist_t Rmin = 2*eps;
+    size_t i;
+    for (i=0; i < N; i++)
+    {
+        dist_t r = (pos_t)((R-Rmin) * (2*randU()-1));
+        r += Rmin * (2*(r>0)-1);
+        p[i].x[0] = 0; //(pos_t)(R * (2*randU()-1));
+        p[i].x[1] = r;
+        //p[i].x[1] = R;
+        p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
+        p[i].v[0] = sqrt(M / (abs(r) + eps)) * (2*(r > 0)-1);
+        p[i].v[1] = 0;
+        p[i].v[2] = 0;
+    }
+
+}
 //============================================================================
 //                                  ic_line
 //============================================================================

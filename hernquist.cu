@@ -162,7 +162,7 @@ void *hernquist_create_potential(size_t N)
     struct hernquist *hernquist = (struct hernquist*)calloc(1, sizeof(*hernquist));
     assert(hernquist != NULL);
 
-    hernquist->phi.eps = 0.05;
+    hernquist->phi.eps = 0.22;
     hernquist->phi.M = 5;
 
     return hernquist;
