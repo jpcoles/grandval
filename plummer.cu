@@ -163,7 +163,7 @@ void *plummer_create_potential(size_t N)
     assert(plummer != NULL);
 
     plummer->phi.eps2 = 0.05;
-    plummer->phi.M = 5;
+    plummer->phi.M = 2;
 
     return plummer;
 }

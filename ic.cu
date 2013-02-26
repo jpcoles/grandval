@@ -62,7 +62,7 @@ void ic_random(struct particle *p, size_t N, pos_t R)
 //==============================================================================
 void ic_circular_plummer(struct particle *p, size_t N, pos_t R)
 {
-    mass_t M = 5;
+    mass_t M = 2;
     dist_t eps2 = 0.05;
     dist_t Rmin = 2*sqrt(eps2);
     size_t i;
