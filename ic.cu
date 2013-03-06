@@ -62,9 +62,10 @@ void ic_random(struct particle *p, size_t N, pos_t R)
 //==============================================================================
 void ic_circular_plummer(struct particle *p, size_t N, pos_t R)
 {
-    mass_t M = 2;
-    dist_t eps2 = 0.05;
-    dist_t Rmin = 2*sqrt(eps2);
+    mass_t M = 1;
+    dist_t eps2 = 0.00;
+    //dist_t Rmin = 2*sqrt(eps2);
+    dist_t Rmin = 0.1 * R;
     size_t i;
     for (i=0; i < N; i++)
     {
@@ -130,10 +131,13 @@ void ic_circular_jaffe(struct particle *p, size_t N, pos_t R)
 void ic_line(struct particle *p, size_t N, pos_t R)
 {
     size_t i;
+    dist_t Rmin = 0.1 * R;
     for (i=0; i < N; i++)
     {
+        dist_t r = (pos_t)((R-Rmin) * (2*randU()-1));
+        r += Rmin * (2*(r>0)-1);
         p[i].x[0] = 0; //(pos_t)(R * (2*randU()-1));
-        p[i].x[1] = (pos_t)(R * (2*randU()-1));
+        p[i].x[1] = r;
         p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
         p[i].v[0] = 0;
         p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));

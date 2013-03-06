@@ -120,9 +120,9 @@ __device__ void nbody_accel(struct particle *p, struct massive_particle *Pm, siz
         // round'ing is important. Conserves momentum perfectly.
         //#define Fhat(x) round(((Pm[i].m*e2)*(((x)*rinv)*gradphi)))
 #if WITH_INTEGERS
-        #define Fhat(x) round((Pm[i].m*(x) * pow(eps2 + r2, -3./2.)))
+        #define Fhat(x) round((Pm[i].m*(x) * pow(eps2 + r2, (real)-3./2.)))
 #else
-        #define Fhat(x) ((Pm[i].m*(x) * pow(eps2 + r2, -1.5F)))
+        #define Fhat(x) ((Pm[i].m*(x) * pow(eps2 + r2, (real)-1.5)))
 #endif
         out[0] += Fhat(dx);
         out[1] += Fhat(dy);

@@ -1,14 +1,18 @@
+#include <endian.h>
 #include <sys/time.h>
+#include <errno.h>
 #include <assert.h>
 #include <png.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <arpa/inet.h>
 #include "grandval.h"
 
 #include "io.h"
 #include "util.h"
 #include "color_ramp.h"
+#include "options.h"
 
 static struct
 {
@@ -26,8 +30,40 @@ static struct
 } supported_snapshot_formats[] = { 
     {"ascii", "ASCII Text. Space separated values. Header in comments."}, 
     {"csv", "ASCII Text. Comma separated values. Header in comments."}, 
+    {"binary", "Binary format. Header is at least 1024 bytes long followed particle structures"}, 
     {NULL, NULL} 
 };
+
+void create_io_header(struct binary_header **hdr, double sim_time, int sim_save, int sim_step, struct program_options *opts, struct program_options *default_opts, size_t NP)
+{
+    struct binary_header *h = *hdr;
+
+    if (h == NULL)
+    {
+        //char *opts_text = make_binary_options_text(opts, default_opts);
+        //size_t sizeof_options = strlen(opts_text) + 1;
+
+        //*hdr = (struct binary_header *)malloc(sizeof(**hdr) + sizeof_options*sizeof(*opts_text));
+        *hdr = (struct binary_header *)malloc(sizeof(**hdr));
+        h = *hdr;
+        strncpy(h->magic, "GRANDVAL", 8);
+        h->major_version = htole16(MAJOR_VERSION);
+        h->minor_version = htole16(MINOR_VERSION);
+        h->sizeof_header = htole32(MIN_HEADER_SIZE < sizeof(*h) ? sizeof(*h) : MIN_HEADER_SIZE);
+        h->sizeof_pos_t  = (uint8_t)sizeof(pos_t);
+        h->sizeof_vel_t  = (uint8_t)sizeof(vel_t);
+
+        h->Nparticles = htole64(NP);
+
+        h->sizeof_options = 0; //htonl(sizeof_options);
+        //memcpy(h->options, opts_text, h->sizeof_options*sizeof(*opts_text));
+    }
+
+    h->creation_time   = htole64(time(NULL));
+    h->simulation_step = htole64(sim_step);
+    h->simulation_time = sim_time;
+    h->output_index    = htole64(sim_save);
+}
 
 //==============================================================================
 //                                  capture
@@ -217,10 +253,9 @@ int check_snapshot_format(char *f)
     return 0;
 }
 
-int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_sep)
+int save_snapshot_ascii(char *fname, struct binary_header *hdr, struct particle *P, size_t NP, char *col_sep)
 {
     size_t i;
-    time_t t;
     int ret_code = 1;
 
     FILE *fp;
@@ -232,12 +267,10 @@ int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_se
 
     if (!fp)
     {
-        errmsg("Can't open file for writing (%s)", fname);
+        errmsg("Can't open ascii file for writing (%s)", fname);
         ret_code = 0;
         goto cleanup;
     }
-
-    t = time(NULL);
 
     if (fp != stdout)
     {
@@ -246,7 +279,7 @@ int save_snapshot_ascii(char *fname, struct particle *P, size_t NP, char *col_se
         "# " GRANDVAL_FULL_PROGRAM_NAME "\n"
         "# Generated on %s"
         "# x y z vx vy vz\n",
-        asctime(localtime(&t)));
+        asctime(localtime(&hdr->creation_time)));
     }
 
     for (i=0; i < NP; i++)
@@ -265,7 +298,38 @@ cleanup:
     return ret_code;
 }
 
-int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
+int save_snapshot_binary(char *fname, struct binary_header *hdr, struct particle *P, size_t NP, char *col_sep)
+{
+    size_t i;
+    int ret_code = 1;
+    FILE *fp;
+    
+    if (!strcmp(fname, "-"))
+        fp = stdout;
+    else
+        fp = fopen(fname, "wb");
+
+    if (!fp)
+    {
+        errmsg("Can't open binary file for writing (%s)", fname);
+        ret_code = 0;
+        goto cleanup;
+    }
+
+    fwrite(hdr, sizeof(*hdr), 1, fp);
+    fseek(fp, hdr->sizeof_header, SEEK_SET);
+
+    for (i=0; i < NP; i++)
+        fwrite(P+i, sizeof(P[i]), 1, fp);
+
+    if (fp != stdout)
+        fclose(fp);
+
+cleanup:
+    return ret_code;
+}
+
+int save_snapshot(int step, struct io *io, struct binary_header *hdr, struct particle *P, size_t NP)
 {
     int ret_code = 1;
     char *fname;
@@ -289,7 +353,9 @@ int save_snapshot(int step, struct io *io, struct particle *P, size_t NP)
     }
 
     if (!strcmp("ascii", io->format))
-        return save_snapshot_ascii(fname, P, NP, " ");
+        ret_code = save_snapshot_ascii(fname, hdr, P, NP, " ");
+    else if (!strcmp("binary", io->format))
+        ret_code = save_snapshot_binary(fname, hdr, P, NP, " ");
     else
         assert(0);
 
@@ -299,3 +365,72 @@ cleanup:
 
     return ret_code;
 }
+
+void show_binary_snapshot(char *fname)
+{
+    size_t i;
+    FILE *fp;
+
+    if (!strcmp(fname, "-"))
+        fp = stdin;
+    else
+        fp = fopen(fname, "rb");
+
+    if (!fp)
+    {
+        errmsg("Can't open binary file for writing (%s)", fname);
+        return;
+    }
+
+    struct binary_header hdr;
+    struct particle P;
+    size_t bytes_read;
+
+    if (fread(&hdr, sizeof(char), sizeof(hdr), fp) < sizeof(hdr))
+    {
+        errmsg("Unexpected end of binary file while reading header.");
+        return;
+    }
+
+    hdr.major_version = le16toh(hdr.major_version);
+    hdr.minor_version = le16toh(hdr.minor_version);
+    hdr.sizeof_header = le32toh(hdr.sizeof_header);
+    //hdr.sizeof_pos_t  = (uint8_t)sizeof(pos_t);
+    //hdr.sizeof_vel_t  = (uint8_t)sizeof(vel_t);
+    hdr.creation_time   = le64toh(hdr.creation_time);
+    hdr.simulation_step = le64toh(hdr.simulation_step);
+    //hdr.simulation_time = sim_time;
+    hdr.output_index    = le64toh(hdr.output_index);
+
+    if (fseek(fp, hdr.sizeof_header, SEEK_SET) == -1)
+    {
+        errmsg("Unable to move to particle data in file. The file is possibly too short.");
+        errmsg(strerror(errno));
+        return;
+    }
+
+    printf("# Binary file %s\n", fname);
+    printf("# grandval v%i.%i\n", hdr.major_version, hdr.minor_version);
+    printf("# Generated on %s", asctime(localtime(&hdr.creation_time)));
+    printf("# Step %ld\n", hdr.simulation_step);
+    printf("# Time %f\n", hdr.simulation_time);
+    printf("# Output %ld\n", hdr.output_index);
+    printf("# %ld particles\n", hdr.Nparticles);
+    printf("# This file format:\n");
+    printf("# x y z vx vy vz\n");
+
+    for (i=0; i < hdr.Nparticles; i++)
+    {
+        fread(&P, sizeof(P), 1, fp);
+
+#define F "%24.15e"
+        printf(F" "F" "F" "F" "F" "F"\n", 
+            P.x[0], P.x[1], P.x[2],
+            P.v[0], P.v[1], P.v[2]);
+    }
+
+
+    if (fp != stdin)
+        fclose(fp);
+}
+

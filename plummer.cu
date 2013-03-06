@@ -107,10 +107,25 @@ __global__ void plummer_cuda_step_all(struct particle *P, size_t NP, mass_t M, d
     if (pi >= NP) return;
 
     struct particle *p = P + pi;
+
     for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
     plummer_accel(p, M, eps2, a);
     for (i=0; i < 3; i++) p->v[i] +=    a[i] * dt;
     for (i=0; i < 3; i++) p->x[i] += p->v[i] * dt/2;
+}
+
+__global__ void plummer_cuda_step_all_first_time(struct particle *P, size_t NP, mass_t M, dist_t eps2, tyme_t dt)
+{
+    int i;
+    acc_t a[3];
+
+    size_t pi = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (pi >= NP) return;
+
+    struct particle *p = P + pi;
+    plummer_accel(p, M, eps2, a);
+    for (i=0; i < 3; i++) p->x[i] += a[i]*dt*dt/4;
 }
 
 int plummer_step_particles(void *phi_data, tyme_t dt)
@@ -144,6 +159,9 @@ int plummer_step_particles(void *phi_data, tyme_t dt)
         plummer->P.Pdev_dirty = 0;
     }
 
+    if (first_time)
+        plummer_cuda_step_all_first_time<<<nblocks,nthreads>>>(plummer->P.Pdev, plummer->P.N, plummer->phi.M, plummer->phi.eps2, dt);
+
     plummer_cuda_step_all<<<nblocks,nthreads>>>(plummer->P.Pdev, plummer->P.N, plummer->phi.M, plummer->phi.eps2, dt);
     err = cudaGetLastError();
     if (err)
@@ -163,7 +181,7 @@ void *plummer_create_potential(size_t N)
     assert(plummer != NULL);
 
     plummer->phi.eps2 = 0.05;
-    plummer->phi.M = 2;
+    plummer->phi.M = 1;
 
     return plummer;
 }
