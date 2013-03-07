@@ -34,3 +34,9 @@ def load_binary(fname):
     D = np.memmap(fname, particle, mode='c', offset=H['sizeof_header'], order='C')
 
     return {'header': H, 'particles': D}
+
+if __name__ == '__main__':
+    import sys
+    D = load_binary(sys.argv[1])
+    print D['header']
+    print D['particles']

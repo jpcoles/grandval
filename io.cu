@@ -427,7 +427,7 @@ void show_binary_snapshot(char *fname)
 #define READN(fp, type, n, lhs) do { \
     size_t _i; \
     type _x[(n)]; \
-    fread(_x, sizeof(_x), (n), (fp)); \
+    fread(_x, sizeof(type), (n), (fp)); \
     for (_i=0; _i < (n); _i++) (lhs)[_i] = _x[_i]; \
 } while (0)
 
