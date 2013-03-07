@@ -64,7 +64,8 @@ void ic_circular_plummer(struct particle *p, size_t N, pos_t R)
 {
     mass_t M = 2;
     dist_t eps2 = 0.05;
-    dist_t Rmin = 2*sqrt(eps2);
+    //dist_t Rmin = 2*sqrt(eps2);
+    dist_t Rmin = 0.1*R;
     size_t i;
     for (i=0; i < N; i++)
     {
@@ -78,7 +79,8 @@ void ic_circular_plummer(struct particle *p, size_t N, pos_t R)
         p[i].v[1] = 0;
         p[i].v[2] = 0;
     }
-}
+   
+} 
 //=============================================================================
 //                                 ic_circular_hernquist
 //============================================================================
@@ -132,10 +134,10 @@ void ic_line(struct particle *p, size_t N, pos_t R)
     size_t i;
     for (i=0; i < N; i++)
     {
-        p[i].x[0] = 0; //(pos_t)(R * (2*randU()-1));
-        p[i].x[1] = (pos_t)(R * (2*randU()-1));
+        p[i].x[0] = (pos_t)(R * (2*randU()-1));
+        p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
         p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
-        p[i].v[0] = 0;
+        p[i].v[0] = 0;//2*randU()-1;
         p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
         p[i].v[2] = 0;
     }
