@@ -69,6 +69,7 @@ int main(int argc, char **argv)
     struct program_options default_opts;
     struct program_options opts;
 
+    struct binary_header *hdr = NULL;
 
     int curr_step;
 
@@ -208,10 +209,10 @@ int main(int argc, char **argv)
             energy_fp = fopen(opts.energy_fname, "r");
             if (energy_fp)
             {
+                fclose(energy_fp);
                 errmsg("File already exists and overwriting was not allowed (%s).", opts.energy_fname);
                 goto fail;
             }
-            fclose(energy_fp);
         }
 
         energy_fp = fopen(opts.energy_fname, "wt");
@@ -239,7 +240,8 @@ int main(int argc, char **argv)
 
     phi.set_particles(phi_data, P, NP);
 
-    printf("ENERGY %24.15e\n", phi.energy(phi_data, P, NP));
+    if (energy_fp && phi.energy != NULL)
+        fprintf(energy_fp, "%24.15e\n", phi.energy(phi_data, P, NP));
 
     P = 0;
     NP = 0;
@@ -255,7 +257,8 @@ int main(int argc, char **argv)
 
     if (opts.Nsnapshots_set && opts.Nsnapshots > 0)
     {
-        if (!save_snapshot(curr_save, &io, P, NP))
+        create_io_header(&hdr, t, curr_save, curr_step, &opts, &default_opts, NP);
+        if (!save_snapshot(curr_save, &io, hdr, P, NP))
             goto fail;
         curr_save++;
     }
@@ -288,7 +291,8 @@ int main(int argc, char **argv)
 
         if (opts.Nsnapshots_set && opts.Nsnapshots > 0 && t > t_next_save)
         {
-            if (!save_snapshot(curr_save, &io, P, NP))
+            create_io_header(&hdr, t, curr_save, curr_step, &opts, &default_opts, NP);
+            if (!save_snapshot(curr_save, &io, hdr, P, NP))
                 goto fail;
 
             curr_save++;
@@ -312,7 +316,8 @@ int main(int argc, char **argv)
 
     if (opts.Nsnapshots_set && opts.Nsnapshots > 0 && t > t_next_save)
     {
-        if (!save_snapshot(curr_save, &io, P, NP))
+        create_io_header(&hdr, t, curr_save, curr_step, &opts, &default_opts, NP);
+        if (!save_snapshot(curr_save, &io, hdr, P, NP))
             goto fail;
     }
 

@@ -3,7 +3,12 @@
 
 #include <inttypes.h>
 
-#define GRANDVAL_FULL_PROGRAM_NAME "grandval v0.1"
+#define str(s) #s
+#define xstr(s) str(s)
+
+#define MAJOR_VERSION 0
+#define MINOR_VERSION 1
+#define GRANDVAL_FULL_PROGRAM_NAME "grandval v" xstr(MAJOR_VERSION) "." xstr(MINOR_VERSION)
 
 
 #define WITH_INTEGERS 0

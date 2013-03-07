@@ -6,6 +6,7 @@
 #include "ic.h"
 #include "devices.h"
 #include "io.h"
+#include "util.h"
 
 void usage()
 {
@@ -33,6 +34,7 @@ void usage()
     "   --show-devices                      Show the available devices.\n"
     "   --seed <int>                        Set the random number generator seed.\n"
     "   --save-energy <string>              Save the total energy at each time step to the specified file.\n"
+    "   --show-binary <string>              Display a binary snapshot in ASCII text and quit.\n"
     "\n"
     "Send bug reports to Jonathan Coles <jonathan@physik.uzh.ch>\n"
     );
@@ -65,6 +67,7 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
         {"cuda-device",     1, 0, 0},
         {"overwrite",     0, 0, 0},
         {"save-energy",     1, 0, 0},
+        {"show-binary",     1, 0, 0},
         {0, 0, 0, 0}
     };
 
@@ -98,7 +101,8 @@ void parse_command_line(int argc, char **argv, struct program_options *opt)
                 else if OPTSTR("show-ics")        { show_initial_conditions(); exit(EXIT_SUCCESS); }
                 else if OPTSTR("show-devices")    { show_devices();            exit(EXIT_SUCCESS); }
                 else if OPTSTR("show-image-formats")    { show_image_formats();            exit(EXIT_SUCCESS); }
-                else if OPTSTR("show-snapshot-formats") { show_snapshot_formats();            exit(EXIT_SUCCESS); }
+                else if OPTSTR("show-snapshot-formats") { show_snapshot_formats();         exit(EXIT_SUCCESS); }
+                else if OPTSTR("show-binary")           { show_binary_snapshot(optarg);    exit(EXIT_SUCCESS); }
                 break;
 
             case 'N': SET_OPTION(opt->Nparticles, atol(optarg)); break;
@@ -135,5 +139,31 @@ void show_options(struct program_options *opts, struct program_options *default_
     PRINT_OPT("Overwrite                 %i", overwrite);
     PRINT_OPT("Random seed               %ld", random_seed);
     PRINT_OPT("Energy filename           %s", energy_fname);
+}
+
+char *make_binary_options_text(struct program_options *opts, struct program_options *default_opts)
+{
+    char *msg = (char *)malloc(1024 * sizeof(*msg));
+
+#define BIN_OPT(str, o) do { char *m; if (opts -> o ## _set) m=make_message("S " #o "\n", opts -> o); else m=make_message("D " #o "\n", default_opts -> o); strcat(msg, m); free(m); } while (0)
+    BIN_OPT("%ld",    Nparticles);
+    BIN_OPT("%f",     dt);
+    BIN_OPT("%f",     Tmax);
+    BIN_OPT("%i",     Nimages);
+    BIN_OPT("%f",     Rimages);
+    BIN_OPT("%s",     image_name);
+    BIN_OPT("%s",     image_format);
+    BIN_OPT("%f",     R);
+    BIN_OPT("%s",     ic_name);
+    BIN_OPT("%s",     potential_name);
+    BIN_OPT("%i",     cuda_device);
+    BIN_OPT("%ld",    Nsnapshots);
+    BIN_OPT("%s",     snapshot_name);
+    BIN_OPT("%s",     snapshot_format);
+    BIN_OPT("%i",     overwrite);
+    BIN_OPT("%ld",    random_seed);
+    BIN_OPT("%s",     energy_fname);
+
+    return msg;
 }
 

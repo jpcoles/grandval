@@ -132,6 +132,7 @@ void ic_circular_jaffe(struct particle *p, size_t N, pos_t R)
 void ic_line(struct particle *p, size_t N, pos_t R)
 {
     size_t i;
+    dist_t Rmin = 0.1 * R;
     for (i=0; i < N; i++)
     {
         p[i].x[0] = (pos_t)(R * (2*randU()-1));
