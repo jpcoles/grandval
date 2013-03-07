@@ -59,7 +59,7 @@ void create_io_header(struct binary_header **hdr, double sim_time, int sim_save,
         //memcpy(h->options, opts_text, h->sizeof_options*sizeof(*opts_text));
     }
 
-    h->creation_time   = htole64(time(NULL));
+    h->creation_time   = htole64((uint64_t)time(NULL));
     h->simulation_step = htole64(sim_step);
     h->simulation_time = sim_time;
     h->output_index    = htole64(sim_save);
@@ -274,12 +274,13 @@ int save_snapshot_ascii(char *fname, struct binary_header *hdr, struct particle 
 
     if (fp != stdout)
     {
+        time_t *t = (time_t *)&(hdr->creation_time);
         fprintf(fp, 
         "# ASCII snapshot\n"
         "# " GRANDVAL_FULL_PROGRAM_NAME "\n"
         "# Generated on %s"
         "# x y z vx vy vz\n",
-        asctime(localtime(&hdr->creation_time)));
+        asctime(localtime(t)));
     }
 
     for (i=0; i < NP; i++)
@@ -320,7 +321,10 @@ int save_snapshot_binary(char *fname, struct binary_header *hdr, struct particle
     fseek(fp, hdr->sizeof_header, SEEK_SET);
 
     for (i=0; i < NP; i++)
-        fwrite(P+i, sizeof(P[i]), 1, fp);
+    {
+        fwrite(P[i].x, sizeof(*P[i].x), 3, fp);
+        fwrite(P[i].v, sizeof(*P[i].v), 3, fp);
+    }
 
     if (fp != stdout)
         fclose(fp);
@@ -409,9 +413,11 @@ void show_binary_snapshot(char *fname)
         return;
     }
 
+    time_t *t = (time_t *)&(hdr.creation_time);
+
     printf("# Binary file %s\n", fname);
     printf("# grandval v%i.%i\n", hdr.major_version, hdr.minor_version);
-    printf("# Generated on %s", asctime(localtime(&hdr.creation_time)));
+    printf("# Generated on %s", asctime(localtime(t)));
     printf("# Step %ld\n", hdr.simulation_step);
     printf("# Time %f\n", hdr.simulation_time);
     printf("# Output %ld\n", hdr.output_index);
