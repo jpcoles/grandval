@@ -388,7 +388,6 @@ void show_binary_snapshot(char *fname)
 
     struct binary_header hdr;
     struct particle P;
-    size_t bytes_read;
 
     if (fread(&hdr, sizeof(char), sizeof(hdr), fp) < sizeof(hdr))
     {
@@ -425,9 +424,29 @@ void show_binary_snapshot(char *fname)
     printf("# This file format:\n");
     printf("# x y z vx vy vz\n");
 
+#define READN(fp, type, n, lhs) do { \
+    size_t _i; \
+    type _x[(n)]; \
+    fread(_x, sizeof(type), (n), (fp)); \
+    for (_i=0; _i < (n); _i++) (lhs)[_i] = _x[_i]; \
+} while (0)
+
+
     for (i=0; i < hdr.Nparticles; i++)
     {
-        fread(&P, sizeof(P), 1, fp);
+        if (hdr.sizeof_pos_t == sizeof(float))
+            READN(fp, float, 3, P.x);
+        else if (hdr.sizeof_pos_t == sizeof(double))
+            READN(fp, double, 3, P.x);
+        else
+            assert(0);
+
+        if (hdr.sizeof_vel_t == sizeof(float))
+            READN(fp, float, 3, P.v);
+        else if (hdr.sizeof_vel_t == sizeof(double))
+            READN(fp, double, 3, P.v);
+        else
+            assert(0);
 
 #define F "%24.15e"
         printf(F" "F" "F" "F" "F" "F"\n", 

@@ -18,7 +18,7 @@ struct binary_header
     uint16_t    major_version;
     uint16_t    minor_version;
     uint32_t    sizeof_header;
-    time_t      creation_time;
+    uint64_t    creation_time;
     uint8_t     sizeof_pos_t;
     uint8_t     sizeof_vel_t;
     uint64_t    simulation_step;
