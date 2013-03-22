@@ -138,7 +138,7 @@ void ic_line(struct particle *p, size_t N, pos_t R)
         p[i].x[0] = (pos_t)(R * (2*randU()-1));
         p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
         p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
-        p[i].v[0] = 0;//2*randU()-1;
+        p[i].v[0] = 2*randU()-1;
         p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
         p[i].v[2] = 0;
     }
