@@ -16,6 +16,7 @@
 #include "plummer.h"
 #include "hernquist.h"
 #include "jaffe.h"
+#include "plummer_lumps.h"
 
 size_t phase_space_number_density(struct particle *P, size_t N, dist_t R)
 {
@@ -116,6 +117,7 @@ int main(int argc, char **argv)
     plummer_init(&phi);     add_potential(&phi);
     hernquist_init(&phi);   add_potential(&phi);
     jaffe_init(&phi);       add_potential(&phi);
+    plummer_lumps_init(&phi); add_potential(&phi);
 
     parse_command_line(argc, argv, &opts);
 

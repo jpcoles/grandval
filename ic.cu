@@ -129,20 +129,75 @@ void ic_circular_jaffe(struct particle *p, size_t N, pos_t R)
 //============================================================================
 //                                  ic_line
 //============================================================================
+
+//next ic code was used to calculate phase difference between 3-velcoity initial lines
+/*
+void ic_line(struct particle *p, size_t N, pos_t R)
+{
+    size_t i;
+    dist_t Rmin = 0.1 * R;
+    for (i=0; i < N; i+=3)
+    {
+        p[i].x[0] = (pos_t)(R* (2.0*i/N -1));//(pos_t)(R*(2*randU()-1));//(pos_t)(R * ((0+2*i/N)-1));
+        p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
+        p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
+        p[i].v[0] = 0; //2*randU()-1;
+        p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
+        p[i].v[2] = 0;
+        
+        p[i].energy_pp=0.5*pow(p[i].v[0], 2)-2.0/sqrt(pow(p[i].x[0], 2)+0.05);
+    }
+    
+    for (i=1; i<N; i+=3)
+    {
+        p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
+        p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
+        p[i].v[0] = 1; //2*randU()-1;
+        p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
+        p[i].v[2] = 0;
+        
+        if (p[i-1].x[0] >= 0)
+        {p[i].x[0] = (pos_t)(sqrt(pow((2/(0.5*p[i].v[0]*p[i].v[0]-p[i-1].energy_pp)),2)-0.05));}
+        else
+        {p[i].x[0] = (pos_t)(-1*sqrt(pow((2/(0.5*p[i].v[0]*p[i].v[0]-p[i-1].energy_pp)),2)-0.05));}
+
+
+    }
+ for (i=2; i<N; i+=3)
+    {
+        p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
+        p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
+        p[i].v[0] = -1; //2*randU()-1;
+        p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
+        p[i].v[2] = 0;
+        
+        if (p[i-2].x[0] >= 0)
+        {p[i].x[0] = (pos_t)(sqrt(pow((2/(0.5*p[i].v[0]*p[i].v[0]-p[i-2].energy_pp)),2)-0.05));}
+        else
+        {p[i].x[0] = (pos_t)(-1*sqrt(pow((2/(0.5*p[i].v[0]*p[i].v[0]-p[i-2].energy_pp)),2)-0.05));}
+
+    }
+
+
+}
+
+*/
+
 void ic_line(struct particle *p, size_t N, pos_t R)
 {
     size_t i;
     dist_t Rmin = 0.1 * R;
     for (i=0; i < N; i++)
     {
-        p[i].x[0] = (pos_t)(R * (2*randU()-1));
-        p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
-        p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
-        p[i].v[0] = 2*randU()-1;
-        p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
-        p[i].v[2] = 0;
+       p[i].x[0] = (pos_t)(R * (2*randU()-1));
+       p[i].x[1] = 0;//(pos_t)(R * (2*randU()-1));
+       p[i].x[2] = 0; //(pos_t)(env->radius * (2*randU()-1));
+       p[i].v[0] = 0; //2*randU()-1;
+       p[i].v[1] = 0; //sqrt(2*1e1 / fabs(p[i].x[0]));
+       p[i].v[2] = 0;
     }
 }
+
 
 //==============================================================================
 //                                 ic_droplet

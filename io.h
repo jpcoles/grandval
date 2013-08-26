@@ -21,6 +21,8 @@ struct binary_header
     uint64_t    creation_time;
     uint8_t     sizeof_pos_t;
     uint8_t     sizeof_vel_t;
+    uint8_t     sizeof_energy_t;
+    uint8_t     sizeof_id;
     uint64_t    simulation_step;
     double      simulation_time;
     uint64_t    output_index;

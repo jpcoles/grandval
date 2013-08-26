@@ -52,7 +52,8 @@ void create_io_header(struct binary_header **hdr, double sim_time, int sim_save,
         h->sizeof_header = htole32(MIN_HEADER_SIZE < sizeof(*h) ? sizeof(*h) : MIN_HEADER_SIZE);
         h->sizeof_pos_t  = (uint8_t)sizeof(pos_t);
         h->sizeof_vel_t  = (uint8_t)sizeof(vel_t);
-
+        h->sizeof_energy_t=(uint8_t)sizeof(energy_t);
+        h->sizeof_id     =  sizeof(int); 
         h->Nparticles = htole64(NP);
 
         h->sizeof_options = 0; //htonl(sizeof_options);
@@ -279,7 +280,7 @@ int save_snapshot_ascii(char *fname, struct binary_header *hdr, struct particle 
         "# ASCII snapshot\n"
         "# " GRANDVAL_FULL_PROGRAM_NAME "\n"
         "# Generated on %s"
-        "# x y z vx vy vz\n",
+        "# x y z vx vy vz E id\n",
         asctime(localtime(t)));
     }
 
@@ -288,7 +289,7 @@ int save_snapshot_ascii(char *fname, struct binary_header *hdr, struct particle 
 #define F "%24.15e"
         fprintf(fp, F" "F" "F" "F" "F" "F"\n", 
             P[i].x[0], P[i].x[1], P[i].x[2],
-            P[i].v[0], P[i].v[1], P[i].v[2]);
+            P[i].v[0], P[i].v[1], P[i].v[2], P[i].energy_pp, P[i].id);
     }
 
     if (fp != stdout)
@@ -324,6 +325,9 @@ int save_snapshot_binary(char *fname, struct binary_header *hdr, struct particle
     {
         fwrite(P[i].x, sizeof(*P[i].x), 3, fp);
         fwrite(P[i].v, sizeof(*P[i].v), 3, fp);
+        fwrite(&P[i].energy_pp, sizeof(P[i].energy_pp), 1, fp);
+        fwrite(&P[i].id, sizeof(P[i].id), 1, fp);
+        
     }
 
     if (fp != stdout)
@@ -422,7 +426,7 @@ void show_binary_snapshot(char *fname)
     printf("# Output %ld\n", hdr.output_index);
     printf("# %ld particles\n", hdr.Nparticles);
     printf("# This file format:\n");
-    printf("# x y z vx vy vz\n");
+    printf("# x y z vx vy vz E id\n");
 
 #define READN(fp, type, n, lhs) do { \
     size_t _i; \
@@ -448,10 +452,21 @@ void show_binary_snapshot(char *fname)
         else
             assert(0);
 
+        if (hdr.sizeof_energy_t == sizeof(float))
+            READN(fp, float, 1, &P.energy_pp);
+        else if (hdr.sizeof_energy_t == sizeof(double))
+            READN(fp, double, 1, &P.energy_pp);
+        else
+            assert(0);
+            
+        READN(fp, int, 1, &P.id);
+
+
+
 #define F "%24.15e"
-        printf(F" "F" "F" "F" "F" "F"\n", 
+        printf(F" "F" "F" "F" "F" "F" "F" %i\n", 
             P.x[0], P.x[1], P.x[2],
-            P.v[0], P.v[1], P.v[2]);
+            P.v[0], P.v[1], P.v[2], P.energy_pp, P.id);
     }
 
 

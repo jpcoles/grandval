@@ -73,10 +73,13 @@ struct image
 };
 
 struct __align__(16) particle
-{
+{   
     pos_t x[3];
     vel_t v[3];
+    energy_t energy_pp; //energy per particle
+    int id; //identity number 
 };
+
 
 struct __align__(16) massive_particle
 {
